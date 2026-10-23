@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nearby picks test | Decideish</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .q { margin-bottom: 22px; }
+    .q legend { font-size: 1.05rem; }
+    .status { min-height: 1.5em; font-weight: 600; margin-top: 14px; }
+    .pick { margin: 28px 0; }
+    .why { margin: 10px 0 0; font-size: 0.95rem; }
+    .why span { display: inline-block; margin: 4px 6px 0 0; padding: 2px 8px; border-radius: 6px; background: var(--orange-wash); }
+    .others { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .others li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .others .meta { color: var(--navy-2); font-size: 0.9rem; }
+    .others .score { font-family: var(--font-ticket); white-space: nowrap; }
+    .credit { margin-top: 32px; font-size: 0.85rem; color: var(--navy-2); }
+  </style>
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+    </div>
+  </header>
+
+  <main class="page">
+    <h1>Nearby picks test</h1>
+    <p class="intro">
+      An experiment. Your answers become keywords, we look up real restaurants near you on
+      OpenStreetMap, and pick the one that fits best. Your location stays on your device
+      except for the lookup itself.
+    </p>
+
+    <form id="form">
+      <fieldset class="q">
+        <legend>Mood</legend>
+        <div class="chips" id="mood"></div>
+      </fieldset>
+      <fieldset class="q">
+        <legend>Cuisine</legend>
+        <div class="chips" id="cuisine"></div>
+      </fieldset>
+      <fieldset class="q">
+        <legend>Budget</legend>
+        <div class="chips" id="budget"></div>
+      </fieldset>
+      <fieldset class="q">
+        <legend>How far</legend>
+        <div class="chips" id="radius"></div>
+      </fieldset>
+
+      <div class="test-actions" style="display:flex;flex-wrap:wrap;gap:12px">
+        <button type="submit" class="btn btn-primary" data-where="me">Find a place near me</button>
+        <button type="submit" class="btn" data-where="central">Pretend I'm in Central Square</button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </form>
+
+    <section id="out" hidden>
+      <div class="pick ticket">
+        <div class="ticket-head"><span>Decideish</span><span id="t-dist"></span></div>
+        <div class="ticket-result" style="margin-top:0;padding-top:0;border-top:0">
+          <p class="label">Your pick:</p>
+          <p class="place" id="t-name"></p>
+          <p class="addr" id="t-addr"></p>
+          <p class="addr" id="t-hours"></p>
+        </div>
+      </div>
+      <p class="why" id="why"></p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" id="t-directions" href="#" target="_blank" rel="noopener">Get directions</a>
+        <button type="button" class="btn" id="next-pick">Show me a different one</button>
+      </div>
+
+      <h2>Everything we found, ranked</h2>
+      <p class="muted small">Shown so you can judge the matching. The real quiz would only show the pick.</p>
+      <ul class="others" id="others"></ul>
+    </section>
+
+    <p class="credit">
+      Restaurant data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.
+    </p>
+  </main>
+
+  <script>
+    // ---------------- the keyword lists ----------------
+    // Each quiz answer turns into words we look for in a place's OpenStreetMap tags and name.
+    // Add or remove words here to tune the matching.
+
+    var CUISINE_WORDS = {
+      Italian:  ["italian", "pizza", "pasta", "trattoria", "osteria"],
+      Mexican:  ["mexican", "taco", "burrito", "taqueria", "tex-mex", "cantina"],
+      Chinese:  ["chinese", "dim_sum", "dim sum", "szechuan", "sichuan", "cantonese", "dumpling", "hot_pot", "noodle"],
+      Thai:     ["thai"],
+      American: ["american", "burger", "diner", "bbq", "barbecue", "sandwich", "chicken", "wings", "grill"],
+      Indian:   ["indian", "curry", "punjabi", "tandoor", "masala", "nepalese", "pakistani"]
+    };
+
+    var MOOD_WORDS = {
+      "Warm & comforting": ["noodle", "ramen", "soup", "pho", "curry", "dumpling", "pizza", "burger", "diner", "pasta", "comfort"],
+      "Spicy & bold":      ["thai", "indian", "szechuan", "sichuan", "mexican", "hot_pot", "spicy", "hot", "curry", "wings", "korean", "jerk"],
+      "Light & fresh":     ["salad", "vegetarian", "vegan", "poke", "sushi", "juice", "healthy", "bowl", "mediterranean", "vietnamese", "fresh"],
+      "Rich & indulgent":  ["steak", "steak_house", "seafood", "bbq", "dessert", "italian", "french", "brunch", "wine", "lobster"]
+    };
+
+    var MOODS = [["Warm & comforting", "Comfort"], ["Spicy & bold", "Spicy"], ["Light & fresh", "Light"], ["Rich & indulgent", "A treat"]];
+    var BUDGETS = [["$", "$ cheap"], ["$$", "$$ mid-range"], ["$$$", "$$$ treat myself"]];
+    var RADII = [["800", "Walking, about half a mile"], ["1600", "About 1 mile"], ["4800", "About 3 miles"]];
+
+    // ---------------- build the answer chips ----------------
+    function chips(boxId, name, options, checkedIndex) {
+      var box = document.getElementById(boxId);
+      options.forEach(function (o, i) {
+        var label = document.createElement("label");
+        label.className = "chip";
+        var input = document.createElement("input");
+        input.type = "radio";
+        input.name = name;
+        input.value = o[0];
+        input.checked = i === checkedIndex;
+        var span = document.createElement("span");
+        span.textContent = o[1];
+        label.appendChild(input);
+        label.appendChild(span);
+        box.appendChild(label);
+      });
+    }
+    chips("mood", "mood", MOODS, 1);
+    chips("cuisine", "cuisine", Object.keys(CUISINE_WORDS).map(function (c) { return [c, c]; }).concat([["Any", "Surprise me"]]), 5);
+    chips("budget", "budget", BUDGETS, 0);
+    chips("radius", "radius", RADII, 1);
+
+    function picked(name) { return document.querySelector('input[name="' + name + '"]:checked').value; }
+
+    // ---------------- helpers ----------------
+    var $ = function (id) { return document.getElementById(id); };
+
+    // straight-line distance in miles (haversine formula)
+    function milesBetween(lat1, lng1, lat2, lng2) {
+      var R = 3958.8, toRad = function (d) { return d * Math.PI / 180; };
+      var dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // all the text we can match keywords against: cuisine tag, name, type of place
+    function searchText(tags) {
+      return [tags.cuisine, tags.name, tags.amenity, tags.description, tags["diet:vegetarian"] === "yes" ? "vegetarian" : "",
+              tags["diet:vegan"] === "yes" ? "vegan" : ""].join(" ").toLowerCase().replace(/;/g, " ");
+    }
+    function matches(text, words) {
+      return words.filter(function (w) { return text.indexOf(w) !== -1; });
+    }
+
+    // ---------------- opening hours ----------------
+    // Handles the common OpenStreetMap formats, like "Mo-Fr 11:00-22:00; Sa,Su 12:00-23:00" or "24/7".
+    // Returns true (open), false (closed) or null (unknown or too complicated to read).
+    var DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    function isOpenNow(hours, now) {
+      if (!hours) return null;
+      hours = hours.trim();
+      if (hours === "24/7") return true;
+      var today = now.getDay();
+      var minutes = now.getHours() * 60 + now.getMinutes();
+      var result = null;
+      var rules = hours.split(";");
+      for (var i = 0; i < rules.length; i++) {
+        var m = rules[i].trim().match(/^((?:Mo|Tu|We|Th|Fr|Sa|Su)(?:[-,](?:Mo|Tu|We|Th|Fr|Sa|Su))*)\s+(.+)$/);
+        if (!m) {
+          // a rule with only times applies every day
+          if (/^\d{1,2}:\d{2}-\d{1,2}:\d{2}/.test(rules[i].trim())) m = [null, "Mo-Su", rules[i].trim()];
+          else return null;
+        }
+        if (!dayIncluded(m[1], today) && !dayIncluded(m[1], (today + 6) % 7)) continue;
+        if (/^(off|closed)$/i.test(m[2])) { if (dayIncluded(m[1], today)) result = false; continue; }
+        var spans = m[2].split(",");
+        var appliesToday = dayIncluded(m[1], today);
+        var openNow = false;
+        for (var j = 0; j < spans.length; j++) {
+          var t = spans[j].trim().match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+          if (!t) return null;
+          var start = +t[1] * 60 + +t[2], end = +t[3] * 60 + +t[4];
+          if (end <= start) end += 24 * 60; // past midnight
+          if (appliesToday && minutes >= start && minutes < end) openNow = true;
+          // yesterday's late-night hours that run past midnight
+          if (dayIncluded(m[1], (today + 6) % 7) && end > 24 * 60 && minutes < end - 24 * 60) openNow = true;
+        }
+        if (appliesToday) result = openNow || result === true;
+        else if (openNow) result = true;
+      }
+      return result;
+    }
+    function dayIncluded(spec, day) {
+      return spec.split(",").some(function (part) {
+        var r = part.split("-");
+        var a = DAYS.indexOf(r[0]), b = DAYS.indexOf(r[1] || r[0]);
+        if (a === -1 || b === -1) return false;
+        return a <= b ? day >= a && day <= b : day >= a || day <= b;
+      });
+    }
+
+    // ---------------- ask OpenStreetMap (Overpass) for nearby places ----------------
+    // Results are cached for 10 minutes so we don't ask the free servers again for the same search.
+    async function nearbyPlaces(lat, lng, radius) {
+      var key = "osm:" + lat.toFixed(3) + "," + lng.toFixed(3) + ":" + radius;
+      try {
+        var cached = JSON.parse(sessionStorage.getItem(key));
+        if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.places;
+      } catch (err) {}
+
+      var query = '[out:json][timeout:20];' +
+        'nwr["amenity"~"^(restaurant|fast_food|cafe)$"]["name"](around:' + radius + ',' + lat + ',' + lng + ');' +
+        'out center tags;';
+      var res = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: "data=" + encodeURIComponent(query)
+      });
+      if (!res.ok) throw new Error("OpenStreetMap is busy (" + res.status + ")");
+      var data = await res.json();
+      var places = data.elements.map(function (e) {
+        return {
+          tags: e.tags || {},
+          lat: e.lat !== undefined ? e.lat : (e.center || {}).lat,
+          lng: e.lon !== undefined ? e.lon : (e.center || {}).lon
+        };
+      }).filter(function (p) { return p.lat !== undefined; });
+      try { sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), places: places })); } catch (err) {}
+      return places;
+    }
+
+    // ---------------- score every place against the answers ----------------
+    function rank(places, here, answers) {
+      var now = new Date();
+      var cuisineWords = answers.cuisine === "Any" ? [] : CUISINE_WORDS[answers.cuisine];
+      var moodWords = MOOD_WORDS[answers.mood];
+
+      return places.map(function (p) {
+        var text = searchText(p.tags);
+        var reasons = [];
+        var score = 0;
+
+        // cuisine: required unless "Surprise me"
+        var cHits = matches(text, cuisineWords);
+        if (answers.cuisine !== "Any") {
+          if (!cHits.length) return null;
+          score += 5;
+          reasons.push(answers.cuisine + ' ("' + cHits[0] + '")');
+        }
+
+        // mood keywords
+        var mHits = matches(text, moodWords);
+        if (mHits.length) {
+          score += 2 + Math.min(mHits.length - 1, 2);
+          reasons.push("fits " + answers.moodLabel.toLowerCase() + ' ("' + mHits.slice(0, 2).join('", "') + '")');
+        }
+
+        // budget: OpenStreetMap has no prices, so the type of place is a rough guess
+        var type = p.tags.amenity;
+        if (answers.budget === "$" && (type === "fast_food" || type === "cafe")) { score += 1; reasons.push("quick and cheap spot"); }
+        if (answers.budget === "$$" && type === "restaurant") score += 1;
+        if (answers.budget === "$$$" && type === "restaurant") {
+          score += 1;
+          if (matches(text, ["steak", "seafood", "wine", "french"]).length) { score += 1; reasons.push("sit-down treat"); }
+        }
+
+        // open now
+        var open = isOpenNow(p.tags.opening_hours, now);
+        if (open === false) return null;           // never suggest a closed place
+        if (open === true) { score += 1; reasons.push("open now"); }
+
+        // closer is better
+        var miles = milesBetween(here.lat, here.lng, p.lat, p.lng);
+        score -= miles * 0.8;
+
+        return { p: p, score: score, miles: miles, open: open, reasons: reasons };
+      }).filter(Boolean).sort(function (a, b) { return b.score - a.score; });
+    }
+
+    // ---------------- show the result ----------------
+    var ranked = [], index = 0;
+
+    function address(tags) {
+      var street = [tags["addr:housenumber"], tags["addr:street"]].filter(Boolean).join(" ");
+      return [street, tags["addr:city"]].filter(Boolean).join(", ") || "Address not listed";
+    }
+
+    function showPick() {
+      var item = ranked[index];
+      var t = item.p.tags;
+      $("t-name").textContent = t.name;
+      $("t-addr").textContent = address(t);
+      $("t-dist").textContent = item.miles.toFixed(1) + " mi";
+      $("t-hours").textContent = item.open === true ? "Open now" : "Hours not listed, check before you go";
+      $("t-directions").href = "https://www.google.com/maps/search/?api=1&query=" +
+        encodeURIComponent(item.p.lat + "," + item.p.lng);
+      $("why").textContent = "";
+      if (item.reasons.length) {
+        $("why").appendChild(document.createTextNode("Why this one: "));
+        item.reasons.forEach(function (r) {
+          var s = document.createElement("span");
+          s.textContent = r;
+          $("why").appendChild(s);
+        });
+      }
+      $("next-pick").hidden = ranked.length < 2;
+    }
+
+    function showAll() {
+      var box = $("others");
+      box.textContent = "";
+      ranked.slice(0, 15).forEach(function (item, i) {
+        var li = document.createElement("li");
+        var left = document.createElement("div");
+        var name = document.createElement("strong");
+        name.textContent = (i + 1) + ". " + item.p.tags.name;
+        var meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = [(item.p.tags.cuisine || "no cuisine tag").replace(/;/g, ", "),
+                            item.p.tags.amenity.replace("_", " "),
+                            item.miles.toFixed(1) + " mi"].join(" · ");
+        left.appendChild(name);
+        left.appendChild(meta);
+        var score = document.createElement("div");
+        score.className = "score";
+        score.textContent = item.score.toFixed(1);
+        li.appendChild(left);
+        li.appendChild(score);
+        box.appendChild(li);
+      });
+    }
+
+    async function run(here) {
+      var answers = {
+        mood: picked("mood"),
+        moodLabel: MOODS.filter(function (m) { return m[0] === picked("mood"); })[0][1],
+        cuisine: picked("cuisine"),
+        budget: picked("budget")
+      };
+      var radius = Number(picked("radius"));
+      $("status").textContent = "Looking up restaurants near you...";
+      $("out").hidden = true;
+      try {
+        var places = await nearbyPlaces(here.lat, here.lng, radius);
+        ranked = rank(places, here, answers);
+        index = 0;
+        if (!ranked.length) {
+          $("status").textContent = "Found " + places.length + " places nearby, but none matched " +
+            answers.cuisine + " and are open. Try a bigger distance or another cuisine.";
+          return;
+        }
+        $("status").textContent = "Checked " + places.length + " places nearby. " + ranked.length + " matched.";
+        showPick();
+        showAll();
+        $("out").hidden = false;
+      } catch (err) {
+        $("status").textContent = "Couldn't reach OpenStreetMap right now. Try again in a minute. (" + err.message + ")";
+      }
+    }
+
+    var lastClicked = "me";
+    document.querySelectorAll("#form button[type=submit]").forEach(function (b) {
+      b.addEventListener("click", function () { lastClicked = b.dataset.where; });
+    });
+
+    $("form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (lastClicked === "central") {
+        run({ lat: 42.3654, lng: -71.1037 });
+        return;
+      }
+      if (!navigator.geolocation) { $("status").textContent = "This browser can't share location."; return; }
+      $("status").textContent = "Asking for your location...";
+      navigator.geolocation.getCurrentPosition(
+        function (pos) { run({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+        function () { $("status").textContent = "Location was blocked or unavailable. Try \"Pretend I'm in Central Square\"."; },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+
+    $("next-pick").addEventListener("click", function () {
+      index = (index + 1) % ranked.length;
+      showPick();
+    });
+  </script>
+
+</body>
+</html>
