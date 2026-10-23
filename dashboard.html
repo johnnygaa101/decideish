@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your dashboard | Decideish</title>
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+      <nav class="nav" aria-label="Account">
+        <a href="preferences.html">Preferences</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="index.html" id="logout">Log out</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap dash">
+
+    <div class="dash-top">
+      <div>
+        <h1>Hi<span id="member-name"></span>. Hungry?</h1>
+        <p class="muted" id="hero-sub">We'll pick a place in about 30 seconds.</p>
+      </div>
+      <a href="quiz.html" class="btn btn-primary btn-big">Pick a restaurant</a>
+    </div>
+
+    <div class="dash-grid">
+
+      <!-- last pick, shown as the order ticket -->
+      <section aria-labelledby="latest-title">
+        <h2 id="latest-title">Your last pick</h2>
+        <div id="latest"></div>
+      </section>
+
+      <div class="dash-main">
+        <section aria-labelledby="history-title">
+          <h2 id="history-title">Where you've eaten</h2>
+          <div id="history"></div>
+        </section>
+
+        <section class="journal" aria-labelledby="journal-title">
+          <h2 id="journal-title">Food journal</h2>
+          <p class="small muted" id="journal-date"></p>
+          <textarea id="journal" aria-labelledby="journal-title" placeholder="What did you eat today? Would you order it again?"></textarea>
+          <p class="save-note" id="save-note" aria-live="polite"></p>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    function load(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (err) { return fallback; }
+    }
+    function el(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text) n.textContent = text;
+      return n;
+    }
+    function niceDate(iso) {
+      return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+    function emptyState(box, message, linkText, href) {
+      var wrap = el("div", "empty");
+      wrap.appendChild(el("p", "", message));
+      var a = el("a", "btn", linkText);
+      a.href = href;
+      wrap.appendChild(a);
+      box.appendChild(wrap);
+    }
+
+    // with Supabase connected, only logged-in users can see the dashboard
+    if (db) {
+      db.auth.getSession().then(function (res) {
+        if (!res.data.session) window.location.href = "signin.html";
+      });
+    }
+
+    // greeting
+    try {
+      var memberName = localStorage.getItem("memberName");
+      if (memberName) document.getElementById("member-name").textContent = " " + memberName;
+    } catch (err) {}
+
+    // nudge to fill in preferences if they haven't yet
+    if (!load("tasteProfile", null)) {
+      var sub = document.getElementById("hero-sub");
+      sub.textContent = "Tip: ";
+      var tip = el("a", "", "add your food preferences");
+      tip.href = "preferences.html";
+      sub.appendChild(tip);
+      sub.appendChild(document.createTextNode(" to get better picks."));
+    }
+
+    // last pick as a ticket
+    var latestBox = document.getElementById("latest");
+    var latest = load("latestPick", null);
+    if (latest) {
+      var ticket = el("div", "ticket");
+      var head = el("div", "ticket-head");
+      head.appendChild(el("span", "", "Decideish"));
+      head.appendChild(el("span", "", niceDate(latest.date)));
+      ticket.appendChild(head);
+      var lines = el("dl", "ticket-lines");
+      [["Cuisine", latest.cuisine], ["Budget", latest.budget]].forEach(function (pair) {
+        if (!pair[1]) return;
+        var row = el("div", "ticket-line");
+        row.appendChild(el("dt", "", pair[0]));
+        row.appendChild(el("span", "dots"));
+        row.appendChild(el("dd", "", pair[1]));
+        lines.appendChild(row);
+      });
+      ticket.appendChild(lines);
+      var result = el("div", "ticket-result");
+      result.appendChild(el("p", "label", "Your pick:"));
+      result.appendChild(el("p", "place", latest.name));
+      result.appendChild(el("p", "addr", latest.address));
+      ticket.appendChild(result);
+      latestBox.appendChild(ticket);
+
+      var dir = el("a", "btn btn-primary btn-full", "Get directions");
+      dir.style.marginTop = "28px";
+      dir.href = "https://www.google.com/maps/search/?api=1&query=" +
+        encodeURIComponent(latest.name + ", " + latest.address);
+      dir.target = "_blank";
+      dir.rel = "noopener";
+      latestBox.appendChild(dir);
+    } else {
+      emptyState(latestBox, "No picks yet. Your last quiz result will show up here.", "Take the quiz", "quiz.html");
+    }
+
+    // places they got directions to
+    var historyBox = document.getElementById("history");
+    var picks = load("pickHistory", []);
+    if (picks.length) {
+      var list = el("ul", "history");
+      picks.slice(0, 6).forEach(function (h) {
+        var li = el("li");
+        var what = el("span");
+        what.appendChild(el("strong", "", h.name));
+        what.appendChild(document.createTextNode(" (" + [h.cuisine, h.budget].filter(Boolean).join(", ") + ")"));
+        li.appendChild(what);
+        li.appendChild(el("span", "when", niceDate(h.date)));
+        list.appendChild(li);
+      });
+      historyBox.appendChild(list);
+    } else {
+      emptyState(historyBox, "Places you get directions to will be listed here.", "Find a place", "quiz.html");
+    }
+
+    // food journal: one entry per day, saved as you type.
+    // all entries are kept together as { "2026-10-12": "text", ... } so they can sync to Supabase
+    var now = new Date();
+    var todayKey = now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate();
+    function getJournal() {
+      var all = load("journal", {});
+      return typeof all === "object" ? all : {};
+    }
+    var journal = document.getElementById("journal");
+    var note = document.getElementById("save-note");
+    document.getElementById("journal-date").textContent =
+      now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    journal.value = getJournal()[todayKey] || "";
+
+    var timer;
+    journal.addEventListener("input", function () {
+      clearTimeout(timer);
+      note.textContent = "Saving...";
+      timer = setTimeout(function () {
+        var all = getJournal();
+        all[todayKey] = journal.value;
+        try {
+          localStorage.setItem("journal", JSON.stringify(all));
+          cloudSave("journal", all);
+          note.textContent = "Saved";
+        } catch (err) {
+          note.textContent = "Couldn't save. Your browser may be blocking storage.";
+        }
+      }, 500);
+    });
+
+    // log out: end the Supabase session and clear this browser's copy of the data
+    document.getElementById("logout").addEventListener("click", async function (e) {
+      e.preventDefault();
+      if (db) await db.auth.signOut();
+      clearLocalData();
+      window.location.href = "index.html";
+    });
+  </script>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
+      </nav>
+      Decideish, 2026. Starting in Cambridge, MA.
+    </div>
+  </footer>
+
+</body>
+</html>

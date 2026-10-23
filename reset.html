@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose a new password | Decideish</title>
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+    </div>
+  </header>
+
+  <main class="form-page">
+    <h1>Choose a new password</h1>
+    <p class="muted">You got here from the reset email.</p>
+
+    <form id="reset-form" class="panel" novalidate>
+      <div class="field">
+        <label for="password">New password</label>
+        <input type="password" id="password" autocomplete="new-password" minlength="8" required aria-describedby="pw-hint">
+        <span class="hint" id="pw-hint">At least 8 characters.</span>
+      </div>
+      <p class="error" id="form-error" role="alert" hidden></p>
+      <button type="submit" class="btn btn-primary btn-full">Save password</button>
+    </form>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    // the link in the reset email logs the user in, so the password can be changed here
+    var form = document.getElementById("reset-form");
+    var formError = document.getElementById("form-error");
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var password = document.getElementById("password");
+      if (!password.checkValidity()) {
+        formError.textContent = "Your password needs at least 8 characters.";
+        formError.hidden = false;
+        return;
+      }
+      if (!db) {
+        formError.textContent = "Supabase isn't connected.";
+        formError.hidden = false;
+        return;
+      }
+      var result = await db.auth.updateUser({ password: password.value });
+      if (result.error) {
+        formError.textContent = result.error.message;
+        formError.hidden = false;
+        return;
+      }
+      window.location.href = "dashboard.html";
+    });
+  </script>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
+      </nav>
+      Decideish, 2026. Starting in Cambridge, MA.
+    </div>
+  </footer>
+
+</body>
+</html>

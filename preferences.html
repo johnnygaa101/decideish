@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your food preferences | Decideish</title>
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+      <nav class="nav" aria-label="Account">
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="form-page wide">
+    <h1 id="page-title">Your food preferences</h1>
+    <p class="muted" id="page-intro">We use these to pick places you'll like. You can change them anytime.</p>
+
+    <form id="prefs-form" class="panel">
+
+      <fieldset>
+        <legend>Cuisines you like <span class="hint">(pick any)</span></legend>
+        <div class="chips" id="cuisine-chips"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Diet</legend>
+        <div class="chips">
+          <label class="chip"><input type="checkbox" name="diet" value="No preference" id="diet-none"><span>No preference</span></label>
+          <label class="chip"><input type="checkbox" name="diet" value="Vegan"><span>Vegan</span></label>
+          <label class="chip"><input type="checkbox" name="diet" value="Vegetarian"><span>Vegetarian</span></label>
+          <label class="chip"><input type="checkbox" name="diet" value="Gluten free"><span>Gluten free</span></label>
+          <label class="chip"><input type="checkbox" name="diet" value="Dairy free"><span>Dairy free</span></label>
+          <label class="chip"><input type="checkbox" name="diet" value="Halal"><span>Halal</span></label>
+          <label class="chip"><input type="checkbox" name="diet" value="Kosher"><span>Kosher</span></label>
+        </div>
+        <div class="other-row">
+          <label class="chip"><input type="checkbox" name="diet" value="Other" id="diet-other"><span>Other</span></label>
+          <textarea id="diet-describe" name="diet-describe" placeholder="Describe your diet" aria-label="Describe your diet" disabled></textarea>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Allergies</legend>
+        <textarea id="allergies" name="allergies" placeholder="For example: peanuts, shellfish" aria-label="Allergies" aria-describedby="allergy-note"></textarea>
+        <p class="hint" id="allergy-note">Always double-check allergens with the restaurant before you order.</p>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save preferences</button>
+        <a href="dashboard.html" id="skip">Skip for now</a>
+      </div>
+      <p class="success" id="saved" role="status" hidden>Preferences saved. Taking you to your dashboard.</p>
+    </form>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    // same cuisine list as the quiz
+    var CUISINES = ["Italian", "Mexican", "Chinese", "Thai", "American", "Indian"];
+
+    var chipsBox = document.getElementById("cuisine-chips");
+    CUISINES.forEach(function (c) {
+      var label = document.createElement("label");
+      label.className = "chip";
+      label.innerHTML = '<input type="checkbox" name="cuisine"><span></span>';
+      label.querySelector("input").value = c;
+      label.querySelector("span").textContent = c;
+      chipsBox.appendChild(label);
+    });
+
+    var form = document.getElementById("prefs-form");
+    var dietBoxes = document.querySelectorAll('input[name="diet"]');
+    var dietNone = document.getElementById("diet-none");
+    var dietOther = document.getElementById("diet-other");
+    var dietDescribe = document.getElementById("diet-describe");
+
+    // coming from the confirm-email link: remember the name for the dashboard
+    if (db) {
+      db.auth.getSession().then(function (res) {
+        if (res.data.session) localSet("memberName", nameFor(res.data.session.user));
+      });
+    }
+
+    // different heading when coming straight from sign-up
+    if (location.search.indexOf("welcome=1") !== -1) {
+      var name = "";
+      try { name = localStorage.getItem("memberName") || ""; } catch (err) {}
+      document.getElementById("page-title").textContent = name ? "Welcome, " + name : "Welcome";
+      document.getElementById("page-intro").textContent =
+        "One more step, and it's optional: tell us what you like so your picks fit you.";
+    }
+
+    // "No preference" and the other diets can't be picked together
+    dietBoxes.forEach(function (box) {
+      box.addEventListener("change", function () {
+        if (box === dietNone && dietNone.checked) {
+          dietBoxes.forEach(function (b) { if (b !== dietNone) b.checked = false; });
+        } else if (box !== dietNone && box.checked) {
+          dietNone.checked = false;
+        }
+        dietDescribe.disabled = !dietOther.checked;
+        if (!dietOther.checked) dietDescribe.value = "";
+      });
+    });
+
+    function checkedValues(name) {
+      return Array.prototype.map.call(
+        document.querySelectorAll('input[name="' + name + '"]:checked'),
+        function (b) { return b.value; }
+      );
+    }
+
+    // fill in anything saved before
+    try {
+      var saved = JSON.parse(localStorage.getItem("tasteProfile"));
+      if (saved) {
+        document.querySelectorAll('input[name="cuisine"], input[name="diet"]').forEach(function (b) {
+          b.checked = (saved[b.name] || []).indexOf(b.value) !== -1;
+        });
+        dietDescribe.disabled = !dietOther.checked;
+        dietDescribe.value = saved.dietOther || "";
+        document.getElementById("allergies").value = saved.allergies || "";
+      }
+    } catch (err) {}
+
+    // saved in this browser, and to Supabase when logged in
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var profile = {
+        cuisine: checkedValues("cuisine"),
+        diet: checkedValues("diet"),
+        dietOther: dietDescribe.value.trim(),
+        allergies: document.getElementById("allergies").value.trim()
+      };
+      try { localStorage.setItem("tasteProfile", JSON.stringify(profile)); } catch (err) {}
+      cloudSave("tasteProfile", profile);
+      document.getElementById("saved").hidden = false;
+      setTimeout(function () { window.location.href = "dashboard.html"; }, 900);
+    });
+  </script>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
+      </nav>
+      Decideish, 2026. Starting in Cambridge, MA.
+    </div>
+  </footer>
+
+</body>
+</html>

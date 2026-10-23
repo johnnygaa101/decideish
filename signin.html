@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log in | Decideish</title>
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+    </div>
+  </header>
+
+  <main class="form-page">
+    <h1>Welcome back</h1>
+    <p class="muted">Log in to see your picks and your food journal.</p>
+
+    <form id="signin-form" class="panel" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="password">Password</label>
+          <a href="#" id="forgot">Forgot password?</a>
+        </div>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+
+      <p class="error" id="form-error" role="alert" hidden></p>
+      <button type="submit" class="btn btn-primary btn-full">Log in</button>
+    </form>
+
+    <p class="switch">New here? <a href="signup.html">Create an account</a></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    var form = document.getElementById("signin-form");
+    var formError = document.getElementById("form-error");
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var email = document.getElementById("email");
+      var password = document.getElementById("password");
+
+      if (!email.checkValidity() || !password.value) {
+        formError.textContent = "Enter your email and password.";
+        formError.hidden = false;
+        (email.checkValidity() ? password : email).focus();
+        return;
+      }
+
+      // no Supabase connection: demo log in, no password check
+      if (!db) {
+        try {
+          if (!localStorage.getItem("memberName")) localSet("memberName", email.value.split("@")[0]);
+        } catch (err) {}
+        window.location.href = "dashboard.html";
+        return;
+      }
+
+      var button = form.querySelector("button");
+      button.disabled = true;
+      button.textContent = "Logging in...";
+      var result = await db.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
+      button.disabled = false;
+      button.textContent = "Log in";
+
+      if (result.error) {
+        formError.textContent = result.error.message === "Invalid login credentials"
+          ? "That email and password don't match."
+          : result.error.message;
+        formError.hidden = false;
+        return;
+      }
+      clearLocalData();                   // don't mix in someone else's data from this browser
+      await cloudLoad(result.data.user);  // bring in their saved data
+      localSet("memberName", nameFor(result.data.user));
+      window.location.href = "dashboard.html";
+    });
+
+    // sends a reset link that opens reset.html
+    document.getElementById("forgot").addEventListener("click", async function (e) {
+      e.preventDefault();
+      var email = document.getElementById("email");
+      if (!db) {
+        formError.textContent = "Password reset needs Supabase connected.";
+      } else if (!email.value || !email.checkValidity()) {
+        formError.textContent = "Type your email above, then click Forgot password.";
+        email.focus();
+      } else {
+        var result = await db.auth.resetPasswordForEmail(email.value.trim(), {
+          redirectTo: new URL("reset.html", window.location.href).href
+        });
+        formError.textContent = result.error ? result.error.message : "Check your email for a link to reset your password.";
+      }
+      formError.hidden = false;
+    });
+  </script>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
+      </nav>
+      Decideish, 2026. Starting in Cambridge, MA.
+    </div>
+  </footer>
+
+</body>
+</html>

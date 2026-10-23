@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feedback | Decideish</title>
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+      <nav class="nav" aria-label="Account">
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="form-page wide">
+    <h1>How did we do?</h1>
+    <p class="muted">Tell us what worked and what didn't. It helps us choose which restaurants to add.</p>
+
+    <form id="feedback-form" class="panel">
+
+      <fieldset>
+        <legend>Rate your last pick</legend>
+        <!-- stars go 5 to 1 so the CSS hover trick works -->
+        <div class="stars">
+          <input type="radio" id="star5" name="rating" value="5"><label for="star5" title="Loved it">&#9733;<span class="sr-only"> 5 stars</span></label>
+          <input type="radio" id="star4" name="rating" value="4"><label for="star4" title="Good">&#9733;<span class="sr-only"> 4 stars</span></label>
+          <input type="radio" id="star3" name="rating" value="3"><label for="star3" title="Okay">&#9733;<span class="sr-only"> 3 stars</span></label>
+          <input type="radio" id="star2" name="rating" value="2"><label for="star2" title="Not great">&#9733;<span class="sr-only"> 2 stars</span></label>
+          <input type="radio" id="star1" name="rating" value="1"><label for="star1" title="Bad">&#9733;<span class="sr-only"> 1 star</span></label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="recs">How was the restaurant we picked?</label>
+        <textarea id="recs" name="recommendations" placeholder="What you ordered, and if you'd go back"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="improve">What should we change or add?</label>
+        <textarea id="improve" name="improve" placeholder="Features, restaurants we're missing, anything"></textarea>
+      </div>
+
+      <p class="error" id="form-error" role="alert" hidden>Add a rating or a comment first.</p>
+      <button type="submit" class="btn btn-primary">Send feedback</button>
+      <p class="success" id="thank-you" role="status" hidden>Feedback sent. Thanks!</p>
+    </form>
+
+    <p class="switch"><a href="dashboard.html">Back to dashboard</a></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    document.getElementById("feedback-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var rated = this.querySelector('input[name="rating"]:checked');
+      var wrote = document.getElementById("recs").value.trim() || document.getElementById("improve").value.trim();
+      var error = document.getElementById("form-error");
+
+      if (!rated && !wrote) {
+        error.hidden = false;
+        return;
+      }
+      error.hidden = true;
+
+      // save it to the feedback table when Supabase is connected
+      if (db) {
+        var session = (await db.auth.getSession()).data.session;
+        var res = await db.from("feedback").insert({
+          user_id: session ? session.user.id : null,
+          rating: rated ? Number(rated.value) : null,
+          recommendations: document.getElementById("recs").value.trim(),
+          improve: document.getElementById("improve").value.trim()
+        });
+        if (res.error) {
+          error.textContent = "Couldn't send your feedback: " + res.error.message;
+          error.hidden = false;
+          return;
+        }
+      }
+      this.reset();
+      document.getElementById("thank-you").hidden = false;
+    });
+  </script>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
+      </nav>
+      Decideish, 2026. Starting in Cambridge, MA.
+    </div>
+  </footer>
+
+</body>
+</html>

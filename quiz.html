@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pick a restaurant | Decideish</title>
+  <meta name="description" content="Tell us what you feel like and Decideish picks a restaurant for you.">
+  <link rel="icon" href="logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img src="logo-mark.png" alt=""><span class="word">Decide<span>ish</span></span></a>
+      <nav class="nav" aria-label="Quiz">
+        <a href="index.html">Leave quiz</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap quiz-layout">
+
+    <div>
+      <!-- one question at a time -->
+      <section id="quiz" aria-live="polite">
+        <p class="progress" id="progress"></p>
+        <div class="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
+        <h1 class="question" id="question" tabindex="-1"></h1>
+        <div class="answers" id="answers" role="radiogroup" aria-labelledby="question"></div>
+        <div class="quiz-nav">
+          <button type="button" class="btn" id="back">Back</button>
+          <button type="button" class="btn btn-primary" id="next" disabled>Next</button>
+        </div>
+      </section>
+
+      <!-- result: a match -->
+      <section id="results" hidden aria-live="polite">
+        <p class="progress">Your pick</p>
+        <h1 class="question" id="rest-name" tabindex="-1"></h1>
+        <p class="muted" id="rest-address"></p>
+        <div class="result-actions">
+          <a class="btn btn-primary btn-big" id="directions" href="#" target="_blank" rel="noopener">Get directions</a>
+          <button type="button" class="btn" id="another">Show me a different one</button>
+        </div>
+        <p class="small muted" id="last-one" hidden>That was the last match, so we're back to the first one.</p>
+        <div class="result-links">
+          <button type="button" class="text-btn" id="again">Start over</button>
+          <a href="dashboard.html" id="to-dashboard" hidden>Go to my dashboard</a>
+        </div>
+      </section>
+
+      <!-- result: nothing on the list yet -->
+      <section id="no-match" hidden aria-live="polite">
+        <p class="progress">No match yet</p>
+        <h1 class="question" id="no-match-title" tabindex="-1"></h1>
+        <p class="muted">We're still adding restaurants. For now, here's a Google Maps search for places near you.</p>
+        <div class="result-actions">
+          <a class="btn btn-primary btn-big" id="maps-search" href="#" target="_blank" rel="noopener">Search Google Maps</a>
+          <button type="button" class="btn" id="again-2">Try a different cuisine</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- the order ticket fills in as you answer -->
+    <aside class="quiz-ticket" aria-label="Your answers so far">
+      <div class="ticket">
+        <div class="ticket-head"><span>Decideish</span><span id="ticket-time"></span></div>
+        <dl class="ticket-lines" id="ticket-lines"></dl>
+        <div class="ticket-result" id="ticket-result" hidden>
+          <p class="label" id="ticket-label">Your pick:</p>
+          <p class="place" id="ticket-place"></p>
+          <p class="addr" id="ticket-addr"></p>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+    // Quiz questions.
+    // "text" is what the user sees, "short" goes on the ticket, "value" is what gets matched.
+    var QUESTIONS = [
+      {
+        key: "mood",
+        label: "Mood",
+        text: "What are you in the mood for?",
+        answers: [
+          { text: "Something warm and comforting", short: "Comfort", value: "Warm & comforting" },
+          { text: "Something spicy", short: "Spicy", value: "Spicy & bold" },
+          { text: "Something light and fresh", short: "Light", value: "Light & fresh" },
+          { text: "Something rich, a treat", short: "A treat", value: "Rich & indulgent" }
+        ]
+      },
+      {
+        key: "cuisine",
+        label: "Cuisine",
+        text: "Which cuisine sounds good?",
+        answers: [
+          { text: "Italian", value: "Italian" },
+          { text: "Mexican", value: "Mexican" },
+          { text: "Chinese", value: "Chinese" },
+          { text: "Thai", value: "Thai" },
+          { text: "American", value: "American" },
+          { text: "Indian", value: "Indian" },
+          { text: "Surprise me", short: "Any", value: "Any" }
+        ]
+      },
+      {
+        key: "budget",
+        label: "Budget",
+        text: "What's your budget?",
+        answers: [
+          { text: "$ (cheap)", short: "$", value: "$" },
+          { text: "$$ (mid-range)", short: "$$", value: "$$" },
+          { text: "$$$ (treat myself)", short: "$$$", value: "$$$" }
+        ]
+      },
+      {
+        key: "distance",
+        label: "Distance",
+        text: "How far will you go?",
+        answers: [
+          { text: "Walking distance, about 1 mile", short: "1 mile", value: "1" },
+          { text: "Within 3 miles", short: "3 miles", value: "3" },
+          { text: "Within 5 miles", short: "5 miles", value: "5" },
+          { text: "Doesn't matter", short: "Any", value: "Any" }
+        ]
+      }
+    ];
+
+    // Backup restaurant list, used when Supabase isn't connected.
+    // When it is, the list comes from the restaurants table (see supabase-client.js).
+    // moods can list more than one mood. miles is a rough distance.
+    var RESTAURANTS = [
+      {
+        name: "Punjabi Dhaba",
+        cuisine: "Indian",
+        budget: "$",
+        moods: ["Warm & comforting", "Spicy & bold"],
+        miles: 1,
+        address: "225 Hampshire St, Cambridge, MA 02139"
+      }
+    ];
+
+    var step = 0;
+    var answers = {};
+    var matches = [];
+    var matchIndex = 0;
+
+    var $ = function (id) { return document.getElementById(id); };
+    var quizEl = $("quiz"), resultsEl = $("results"), noMatchEl = $("no-match");
+    var backBtn = $("back"), nextBtn = $("next");
+
+    // saves in this browser, and to Supabase when logged in
+    function save(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (err) {}
+      cloudSave(key, value);
+    }
+    function load(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (err) { return fallback; }
+    }
+
+    // ticket header shows the current time, like a real order slip
+    $("ticket-time").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+    // short version of an answer for the ticket
+    function shortAnswer(q, value) {
+      for (var i = 0; i < q.answers.length; i++) {
+        if (q.answers[i].value === value) return q.answers[i].short || q.answers[i].text;
+      }
+      return "";
+    }
+
+    // one line on the ticket per question; unanswered ones show a "?"
+    function drawTicket() {
+      var box = $("ticket-lines");
+      box.textContent = "";
+      QUESTIONS.forEach(function (q) {
+        var row = document.createElement("div");
+        row.className = "ticket-line";
+        var dt = document.createElement("dt");
+        dt.textContent = q.label;
+        var dots = document.createElement("span");
+        dots.className = "dots";
+        var dd = document.createElement("dd");
+        dd.textContent = answers[q.key] ? shortAnswer(q, answers[q.key]) : "";
+        row.appendChild(dt);
+        row.appendChild(dots);
+        row.appendChild(dd);
+        box.appendChild(row);
+      });
+    }
+
+    function showQuestion() {
+      var q = QUESTIONS[step];
+      $("progress").textContent = "Question " + (step + 1) + " of " + QUESTIONS.length;
+      $("progress-fill").style.width = ((step + 1) / QUESTIONS.length * 100) + "%";
+      $("question").textContent = q.text;
+      var box = $("answers");
+      box.textContent = "";
+      box.classList.toggle("two-col", q.answers.length > 6);
+
+      q.answers.forEach(function (a) {
+        var label = document.createElement("label");
+        label.className = "answer";
+        var input = document.createElement("input");
+        input.type = "radio";
+        input.name = q.key;
+        input.value = a.value;
+        input.checked = answers[q.key] === a.value;
+        input.addEventListener("change", function () {
+          answers[q.key] = a.value;
+          nextBtn.disabled = false;
+          drawTicket();
+        });
+        var span = document.createElement("span");
+        span.textContent = a.text;
+        label.appendChild(input);
+        label.appendChild(span);
+        box.appendChild(label);
+      });
+
+      backBtn.hidden = step === 0;
+      nextBtn.disabled = !answers[q.key];
+      nextBtn.textContent = step === QUESTIONS.length - 1 ? "Pick my restaurant" : "Next";
+    }
+
+    // Gives each restaurant points and sorts by score.
+    // same cuisine is required; budget +2, mood +2, distance +1, favorite cuisine +1
+    function findMatches() {
+      var maxMiles = answers.distance === "Any" ? Infinity : Number(answers.distance);
+      var favorites = load("tasteProfile", {}).cuisine || [];
+      return RESTAURANTS
+        .filter(function (r) { return answers.cuisine === "Any" || r.cuisine === answers.cuisine; })
+        .map(function (r) {
+          var score = 0;
+          if (r.budget === answers.budget) score += 2;
+          if ((r.moods || []).indexOf(answers.mood) !== -1) score += 2;
+          if (r.miles === undefined || r.miles <= maxMiles) score += 1;
+          if (favorites.indexOf(r.cuisine) !== -1) score += 1;
+          return { r: r, score: score + Math.random() * 0.5 }; // random part so ties mix up
+        })
+        .sort(function (a, b) { return b.score - a.score; })
+        .map(function (x) { return x.r; });
+    }
+
+    function mapsLink(query) {
+      return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(query);
+    }
+
+    // print the result at the bottom of the ticket
+    function printOnTicket(label, place, addr) {
+      var box = $("ticket-result");
+      $("ticket-label").textContent = label;
+      $("ticket-place").textContent = place;
+      $("ticket-addr").textContent = addr;
+      box.hidden = false;
+      box.classList.remove("printing");
+      void box.offsetWidth; // restart the animation
+      box.classList.add("printing");
+    }
+
+    function showPick() {
+      var r = matches[matchIndex];
+      $("rest-name").textContent = r.name;
+      $("rest-address").textContent = r.address;
+      $("directions").href = mapsLink(r.name + ", " + r.address);
+      printOnTicket("Your pick:", r.name, r.address.split(",").slice(0, 2).join(","));
+
+      $("another").hidden = matches.length < 2;
+      $("last-one").hidden = !(matches.length > 1 && matchIndex === 0 && $("last-one").dataset.wrapped === "1");
+
+      // save it so the dashboard can show it
+      save("latestPick", {
+        name: r.name, cuisine: r.cuisine, budget: r.budget,
+        address: r.address, mood: answers.mood, date: new Date().toISOString()
+      });
+    }
+
+    async function showResults() {
+      save("quizAnswers", answers);
+      var fromSupabase = await restaurantsReady; // the list from Supabase, if connected
+      if (fromSupabase && fromSupabase.length) RESTAURANTS = fromSupabase;
+      matches = findMatches();
+      matchIndex = 0;
+      $("last-one").dataset.wrapped = "0";
+      quizEl.hidden = true;
+
+      if (matches.length) {
+        showPick();
+        resultsEl.hidden = false;
+        $("rest-name").focus();
+      } else {
+        var cuisine = answers.cuisine === "Any" ? "" : answers.cuisine + " ";
+        $("no-match-title").textContent = "No " + cuisine + "places on our list yet";
+        $("maps-search").href = mapsLink(cuisine + "restaurants near me");
+        printOnTicket("Your pick:", "Not on our list yet", "Try Google Maps");
+        noMatchEl.hidden = false;
+        $("no-match-title").focus();
+      }
+      var signedIn = false;
+      try { signedIn = !!localStorage.getItem("memberName"); } catch (err) {}
+      $("to-dashboard").hidden = !signedIn;
+      window.scrollTo(0, 0);
+    }
+
+    function restart() {
+      step = 0;
+      answers = {};
+      resultsEl.hidden = true;
+      noMatchEl.hidden = true;
+      quizEl.hidden = false;
+      $("ticket-result").hidden = true;
+      drawTicket();
+      showQuestion();
+      $("question").focus();
+      window.scrollTo(0, 0);
+    }
+
+    nextBtn.addEventListener("click", function () {
+      if (step < QUESTIONS.length - 1) {
+        step++;
+        showQuestion();
+        $("question").focus();
+      } else {
+        showResults();
+      }
+    });
+
+    backBtn.addEventListener("click", function () {
+      if (step > 0) {
+        step--;
+        showQuestion();
+        $("question").focus();
+      }
+    });
+
+    $("another").addEventListener("click", function () {
+      matchIndex++;
+      if (matchIndex >= matches.length) {
+        matchIndex = 0;
+        $("last-one").dataset.wrapped = "1";
+      }
+      showPick();
+      $("rest-name").focus();
+    });
+
+    // clicking "Get directions" counts as a visit, so save it to the history
+    $("directions").addEventListener("click", function () {
+      var r = matches[matchIndex];
+      var picks = load("pickHistory", []);
+      picks.unshift({
+        name: r.name, cuisine: r.cuisine, budget: r.budget,
+        mood: answers.mood, date: new Date().toISOString()
+      });
+      save("pickHistory", picks.slice(0, 20));
+    });
+
+    $("again").addEventListener("click", restart);
+    $("again-2").addEventListener("click", restart);
+
+    drawTicket();
+    showQuestion();
+  </script>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="feedback.html">Feedback</a>
+        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
+      </nav>
+      Decideish, 2026. Starting in Cambridge, MA.
+    </div>
+  </footer>
+
+</body>
+</html>
