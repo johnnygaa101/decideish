@@ -83,10 +83,23 @@ async function loadRestaurants() {
     console.warn("Couldn't load restaurants, using the backup list:", res.error.message);
     return null;
   }
+  // turns "a, b" text or a real list into a clean list
+  function toList(v) {
+    if (Array.isArray(v)) return v.map(function (x) { return String(x).trim(); }).filter(Boolean);
+    if (typeof v === "string") return v.split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    return [];
+  }
   return res.data.map(function (r) {
     return {
-      name: r.name, cuisine: r.cuisine, budget: r.budget, moods: r.moods || [],
-      miles: r.miles === null ? undefined : Number(r.miles), address: r.address
+      name: String(r.name || "").trim(),
+      cuisine: String(r.cuisine || "").trim(),
+      budget: String(r.budget || "").trim(),
+      moods: toList(r.moods && r.moods.length ? r.moods : r.mood),      // works with moods (list) or mood (text)
+      dietary: toList(r.dietary || r.Dietary || r["Dietary Needs"]),   // works with any of the three column names
+      latitude: r.latitude === null || r.latitude === undefined ? undefined : Number(r.latitude),
+      longitude: r.longitude === null || r.longitude === undefined ? undefined : Number(r.longitude),
+      miles: r.miles === null || r.miles === undefined ? undefined : Number(r.miles),
+      address: String(r.address || "").replace(/\s+/g, " ").trim()
     };
   });
 }
