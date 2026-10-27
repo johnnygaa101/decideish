@@ -16,6 +16,13 @@
     .taste-card p { margin: 0 0 8px; }
     .taste-card p:last-child { margin-bottom: 0; }
     .taste-card strong { color: var(--navy); }
+    .taste-label { margin: 0 0 14px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy-2); }
+    .bars { margin: 0 0 16px; padding: 0; list-style: none; display: grid; gap: 12px; }
+    .bar-row { display: grid; grid-template-columns: 96px 1fr 34px; gap: 12px; align-items: center; }
+    .bar-name { font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { height: 12px; border-radius: 999px; background: #E7E9EF; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: var(--orange); }
+    .bar-count { text-align: right; color: var(--navy-2); font-variant-numeric: tabular-nums; }
   </style>
 </head>
 
@@ -90,7 +97,11 @@
         { name: "Punjabi Dhaba", cuisine: "Indian", budget: "$", date: new Date().toISOString() },
         { name: "Veggie Galaxy", cuisine: "American", budget: "$$", date: new Date(Date.now() - 2 * 86400000).toISOString() },
         { name: "Kantipur Cafe", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 5 * 86400000).toISOString() },
-        { name: "Sugar & Spice Thai Restaurant", cuisine: "Thai", budget: "$$", date: new Date(Date.now() - 8 * 86400000).toISOString() }
+        { name: "Sugar & Spice Thai Restaurant", cuisine: "Thai", budget: "$$", date: new Date(Date.now() - 8 * 86400000).toISOString() },
+        { name: "Nirvana The Taste of India", cuisine: "Indian", budget: "$$", date: new Date(Date.now() - 9 * 86400000).toISOString() },
+        { name: "Nine Tastes", cuisine: "Thai", budget: "$", date: new Date(Date.now() - 11 * 86400000).toISOString() },
+        { name: "India Pavilion", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 13 * 86400000).toISOString() },
+        { name: "Chivo Taqueria", cuisine: "Mexican", budget: "$", date: new Date(Date.now() - 15 * 86400000).toISOString() }
       ],
       journal: {}
     };
@@ -216,36 +227,46 @@
       emptyState(historyBox, "Places you get directions to will show up here.", "Find a place", "quiz.html");
     }
 
-    // what the account has learned: most-picked cuisine and usual budget
+    // what the account has learned: a bar for each cuisine you pick, plus your usual budget
     (function () {
       var box = document.getElementById("taste");
-      function top(key) {
-        var counts = {}, best = null;
-        picks.forEach(function (h) { if (h[key]) counts[h[key]] = (counts[h[key]] || 0) + 1; });
-        Object.keys(counts).forEach(function (k) { if (!best || counts[k] > counts[best]) best = k; });
-        return best ? { name: best, n: counts[best] } : null;
+      function counts(key) {
+        var c = {};
+        picks.forEach(function (h) { if (h[key]) c[h[key]] = (c[h[key]] || 0) + 1; });
+        return Object.keys(c).map(function (k) { return { name: k, n: c[k] }; })
+          .sort(function (a, b) { return b.n - a.n; });
       }
-      var c = top("cuisine"), b = top("budget");
-      if (c) {
-        var p1 = el("p");
-        p1.appendChild(document.createTextNode("You pick "));
-        p1.appendChild(el("strong", "", c.name));
-        p1.appendChild(document.createTextNode(" most (" + c.n + " of " + picks.length + " places)."));
-        box.appendChild(p1);
+      var cuisines = counts("cuisine").slice(0, 5);
+      var budgets = counts("budget");
+
+      if (cuisines.length) {
+        box.appendChild(el("p", "taste-label", "Cuisines you pick"));
+        var list = el("ul", "bars");
+        cuisines.forEach(function (c) {
+          var li = el("li", "bar-row");
+          li.appendChild(el("span", "bar-name", c.name));
+          var track = el("span", "bar-track");
+          track.setAttribute("aria-hidden", "true");
+          var fill = el("span", "bar-fill");
+          fill.style.display = "block";
+          fill.style.width = Math.round(c.n / cuisines[0].n * 100) + "%";
+          track.appendChild(fill);
+          li.appendChild(track);
+          li.appendChild(el("span", "bar-count", "+" + c.n));
+          list.appendChild(li);
+        });
+        box.appendChild(list);
+      } else if (profile && (profile.cuisine || []).length) {
+        box.appendChild(el("p", "taste-label", "Cuisines you like"));
+        var fav = el("p");
+        fav.appendChild(el("strong", "", profile.cuisine.join(", ")));
+        box.appendChild(fav);
       }
-      if (b) {
+      if (budgets.length) {
         var p2 = el("p");
         p2.appendChild(document.createTextNode("Your usual budget: "));
-        p2.appendChild(el("strong", "", b.name));
-        p2.appendChild(document.createTextNode("."));
+        p2.appendChild(el("strong", "", budgets[0].name));
         box.appendChild(p2);
-      }
-      if (!c && profile && (profile.cuisine || []).length) {
-        var p3 = el("p");
-        p3.appendChild(document.createTextNode("Favorites: "));
-        p3.appendChild(el("strong", "", profile.cuisine.join(", ")));
-        p3.appendChild(document.createTextNode("."));
-        box.appendChild(p3);
       }
       if (box.children.length) document.getElementById("taste-section").hidden = false;
     })();
