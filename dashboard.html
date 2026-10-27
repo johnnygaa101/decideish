@@ -9,6 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .dash-side { display: grid; gap: 40px; align-content: start; }
+    .demo-banner { margin: 0 0 18px; padding: 10px 14px; border-radius: 10px; background: var(--orange-wash); color: var(--navy); font-weight: 600; }
+    .taste-card { padding: 20px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); }
+    .taste-card p { margin: 0 0 8px; }
+    .taste-card p:last-child { margin-bottom: 0; }
+    .taste-card strong { color: var(--navy); }
+  </style>
 </head>
 
 <body>
@@ -26,10 +34,13 @@
 
   <main class="wrap dash">
 
+    <p class="demo-banner" id="demo-banner" hidden>Demo mode: this is sample data, and nothing you do here is saved.</p>
+
     <div class="dash-top">
       <div>
         <h1>Hi<span id="member-name"></span>. Hungry?</h1>
         <p class="muted" id="hero-sub">We'll pick a place in about 30 seconds.</p>
+        <p class="small muted" id="prefs-line" hidden></p>
       </div>
       <a href="quiz.html" class="btn btn-primary btn-big">Pick a restaurant</a>
     </div>
@@ -37,14 +48,21 @@
     <div class="dash-grid">
 
       <!-- last pick, shown as the order ticket -->
-      <section aria-labelledby="latest-title">
-        <h2 id="latest-title">Your last pick</h2>
-        <div id="latest"></div>
-      </section>
+      <div class="dash-side">
+        <section aria-labelledby="latest-title">
+          <h2 id="latest-title">Your last pick</h2>
+          <div id="latest"></div>
+        </section>
+
+        <section id="taste-section" aria-labelledby="taste-title" hidden>
+          <h2 id="taste-title">Your taste</h2>
+          <div class="taste-card" id="taste"></div>
+        </section>
+      </div>
 
       <div class="dash-main">
         <section aria-labelledby="history-title">
-          <h2 id="history-title">Where you've eaten</h2>
+          <h2 id="history-title">Places you've looked up</h2>
           <div id="history"></div>
         </section>
 
@@ -62,7 +80,22 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
   <script>
+    // demo mode: add ?demo=1 to the address to show sample data. Nothing is read from or saved to the real account.
+    var demo = new URLSearchParams(window.location.search).get("demo") === "1";
+    var DEMO = {
+      memberName: "Sam",
+      tasteProfile: { cuisine: ["Indian", "Thai"], diet: ["Vegetarian"], dietOther: "", allergies: "" },
+      latestPick: { name: "Punjabi Dhaba", cuisine: "Indian", budget: "$", address: "225 Hampshire St, Cambridge, MA 02139", date: new Date().toISOString() },
+      pickHistory: [
+        { name: "Punjabi Dhaba", cuisine: "Indian", budget: "$", date: new Date().toISOString() },
+        { name: "Veggie Galaxy", cuisine: "American", budget: "$$", date: new Date(Date.now() - 2 * 86400000).toISOString() },
+        { name: "Kantipur Cafe", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 5 * 86400000).toISOString() },
+        { name: "Sugar & Spice Thai Restaurant", cuisine: "Thai", budget: "$$", date: new Date(Date.now() - 8 * 86400000).toISOString() }
+      ],
+      journal: {}
+    };
     function load(key, fallback) {
+      if (demo && DEMO[key] !== undefined) return DEMO[key];
       try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (err) { return fallback; }
     }
     function el(tag, cls, text) {
@@ -84,7 +117,7 @@
     }
 
     // with Supabase connected, only logged-in users can see the dashboard
-    if (db) {
+    if (db && !demo) {
       db.auth.getSession().then(function (res) {
         if (!res.data.session) window.location.href = "signin.html";
       });
@@ -92,7 +125,7 @@
 
     // greeting
     try {
-      var memberName = localStorage.getItem("memberName");
+      var memberName = demo ? DEMO.memberName : localStorage.getItem("memberName");
       if (memberName) document.getElementById("member-name").textContent = " " + memberName;
     } catch (err) {}
 
@@ -104,6 +137,27 @@
       tip.href = "preferences.html";
       sub.appendChild(tip);
       sub.appendChild(document.createTextNode(" to get better picks."));
+    }
+
+    if (demo) document.getElementById("demo-banner").hidden = false;
+
+    // a one-line summary of the saved preferences, with a link to change them
+    var profile = load("tasteProfile", null);
+    if (profile) {
+      var bits = [];
+      var diets = (profile.diet || []).filter(function (d) { return d !== "No preference" && d !== "Other"; });
+      if (profile.dietOther) diets.push(profile.dietOther);
+      if (diets.length) bits.push(diets.join(", "));
+      if ((profile.cuisine || []).length) bits.push("likes " + profile.cuisine.join(", "));
+      if (profile.allergies) bits.push("allergies: " + profile.allergies);
+      if (bits.length) {
+        var line = document.getElementById("prefs-line");
+        line.textContent = "Your preferences: " + bits.join(" \u00b7 ") + ". ";
+        var edit = el("a", "", "Edit");
+        edit.href = "preferences.html";
+        line.appendChild(edit);
+        line.hidden = false;
+      }
     }
 
     // last pick as a ticket
@@ -159,8 +213,42 @@
       });
       historyBox.appendChild(list);
     } else {
-      emptyState(historyBox, "Places you get directions to will be listed here.", "Find a place", "quiz.html");
+      emptyState(historyBox, "Places you get directions to will show up here.", "Find a place", "quiz.html");
     }
+
+    // what the account has learned: most-picked cuisine and usual budget
+    (function () {
+      var box = document.getElementById("taste");
+      function top(key) {
+        var counts = {}, best = null;
+        picks.forEach(function (h) { if (h[key]) counts[h[key]] = (counts[h[key]] || 0) + 1; });
+        Object.keys(counts).forEach(function (k) { if (!best || counts[k] > counts[best]) best = k; });
+        return best ? { name: best, n: counts[best] } : null;
+      }
+      var c = top("cuisine"), b = top("budget");
+      if (c) {
+        var p1 = el("p");
+        p1.appendChild(document.createTextNode("You pick "));
+        p1.appendChild(el("strong", "", c.name));
+        p1.appendChild(document.createTextNode(" most (" + c.n + " of " + picks.length + " places)."));
+        box.appendChild(p1);
+      }
+      if (b) {
+        var p2 = el("p");
+        p2.appendChild(document.createTextNode("Your usual budget: "));
+        p2.appendChild(el("strong", "", b.name));
+        p2.appendChild(document.createTextNode("."));
+        box.appendChild(p2);
+      }
+      if (!c && profile && (profile.cuisine || []).length) {
+        var p3 = el("p");
+        p3.appendChild(document.createTextNode("Favorites: "));
+        p3.appendChild(el("strong", "", profile.cuisine.join(", ")));
+        p3.appendChild(document.createTextNode("."));
+        box.appendChild(p3);
+      }
+      if (box.children.length) document.getElementById("taste-section").hidden = false;
+    })();
 
     // food journal: one entry per day, saved as you type.
     // all entries are kept together as { "2026-10-12": "text", ... } so they can sync to Supabase
@@ -174,6 +262,7 @@
     var note = document.getElementById("save-note");
     document.getElementById("journal-date").textContent =
       now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    if (demo) DEMO.journal[todayKey] = "Veggie Galaxy for lunch. Would order the sweet potato fries again.";
     journal.value = getJournal()[todayKey] || "";
 
     var timer;
@@ -181,6 +270,7 @@
       clearTimeout(timer);
       note.textContent = "Saving...";
       timer = setTimeout(function () {
+        if (demo) { note.textContent = "Demo mode: not saved"; return; }
         var all = getJournal();
         all[todayKey] = journal.value;
         try {
