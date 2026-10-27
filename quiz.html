@@ -289,43 +289,61 @@
 
     // cuisine is required. diet is required too, but if that leaves nothing we drop it and say so.
     // score: budget +2, mood +2, distance +1, favorite cuisine +1. Each match remembers why it matched.
+    var BUDGET_RANK = { "$": 1, "$$": 2, "$$$": 3 };
+
+    // cuisine, budget and diet are all required. If nothing fits, we loosen one thing at a time
+    // (budget first, then diet) and say so. Score: exact budget +2, mood +2, distance +1, favorite cuisine +1.
     function findMatches() {
       var maxMiles = answers.distance === "Any" ? Infinity : Number(answers.distance);
       var favorites = load("tasteProfile", {}).cuisine || [];
+      var want = BUDGET_RANK[answers.budget] || 3;
+      var needDiet = answers.diet !== "No restrictions";
+      var what = answers.cuisine === "Any" ? "" : answers.cuisine + " ";
       lastNote = "";
 
-      function build(useDiet) {
+      function build(useDiet, maxRank) {
         return RESTAURANTS
           .filter(function (r) { return answers.cuisine === "Any" || r.cuisine === answers.cuisine; })
-          .filter(function (r) { return !useDiet || answers.diet === "No restrictions" || has(r.dietary, answers.diet); })
+          .filter(function (r) { var rank = BUDGET_RANK[r.budget]; return !rank || rank <= maxRank; })
+          .filter(function (r) { return !useDiet || !needDiet || has(r.dietary, answers.diet); })
           .map(function (r) {
             var score = 0, why = [];
             var dist = distanceTo(r);
+            var rank = BUDGET_RANK[r.budget] || 0;
             if (r.budget === answers.budget) { score += 2; why.push("fits your " + answers.budget + " budget"); }
+            else if (rank && rank < want) { why.push("under your " + answers.budget + " budget"); }
             if (has(r.moods, answers.mood)) { score += 2; why.push("matches your " + answers.mood.toLowerCase() + " mood"); }
             if (dist !== undefined && dist <= maxMiles) { score += 1; }
             else if (dist === undefined && r.miles !== undefined && r.miles <= maxMiles) { score += 1; dist = r.miles; }
-            if (answers.diet !== "No restrictions" && has(r.dietary, answers.diet)) why.push("has " + answers.diet.toLowerCase() + " options");
+            if (needDiet && has(r.dietary, answers.diet)) why.push("has " + answers.diet.toLowerCase() + " options");
             if (favorites.indexOf(r.cuisine) !== -1) score += 1;
+            if (rank > want) score -= (rank - want) * 3; // when we have to go over budget, stay as close as possible
             var copy = {};
             for (var k in r) copy[k] = r[k];
             copy._dist = dist;
             copy._why = why;
-            copy._score = score + Math.random() * 0.5; // random part so ties mix up
+            copy._score = score + Math.random() * 0.5;
             return copy;
           })
           .sort(function (a, b) { return b._score - a._score; });
       }
 
-      var list = build(true);
-      if (!list.length && answers.diet !== "No restrictions") {
-        list = build(false);
-        if (list.length) {
-          lastNote = "We don't have a " + (answers.cuisine === "Any" ? "" : answers.cuisine + " ") +
-                     answers.diet.toLowerCase() + " place on our list yet, so these are the closest matches. Check the menu or call before you go.";
-        }
+      var budgetNote = "We don't have " + what + "places at " + answers.budget + " or under" +
+                       (needDiet ? " with " + answers.diet.toLowerCase() + " options" : "") + ", so these are the closest in price.";
+      var dietNote = "We don't have " + what + answers.diet.toLowerCase() +
+                     " places on our list yet, so these are the closest matches. Check the menu or call before you go.";
+
+      var tries = [{ diet: true, rank: want, note: "" }];
+      if (want < 3) tries.push({ diet: true, rank: 3, note: budgetNote });
+      if (needDiet) {
+        tries.push({ diet: false, rank: want, note: dietNote });
+        if (want < 3) tries.push({ diet: false, rank: 3, note: dietNote });
       }
-      return list;
+      for (var i = 0; i < tries.length; i++) {
+        var list = build(tries[i].diet, tries[i].rank);
+        if (list.length) { lastNote = tries[i].note; return list; }
+      }
+      return [];
     }
 
     function mapsLink(query) {
