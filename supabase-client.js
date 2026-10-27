@@ -99,7 +99,8 @@ async function loadRestaurants() {
       latitude: r.latitude === null || r.latitude === undefined ? undefined : Number(r.latitude),
       longitude: r.longitude === null || r.longitude === undefined ? undefined : Number(r.longitude),
       miles: r.miles === null || r.miles === undefined ? undefined : Number(r.miles),
-      address: String(r.address || "").replace(/\s+/g, " ").trim()
+      address: String(r.address || "").replace(/\s+/g, " ").trim(),
+      image: String(r.image_url || "").trim()
     };
   });
 }
