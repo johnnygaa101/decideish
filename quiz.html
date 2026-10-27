@@ -43,6 +43,8 @@
         <p class="progress">Your pick</p>
         <h1 class="question" id="rest-name" tabindex="-1"></h1>
         <p class="muted" id="rest-address"></p>
+        <p id="why"></p>
+        <p class="small muted" id="note" hidden></p>
         <div class="result-actions">
           <a class="btn btn-primary btn-big" id="directions" href="#" target="_blank" rel="noopener">Get directions</a>
           <button type="button" class="btn" id="another">Show me a different one</button>
@@ -101,7 +103,7 @@
       {
         key: "cuisine",
         label: "Cuisine",
-        text: "Which cuisine are you feeling right now?",
+        text: "Which cuisine sounds good?",
         answers: [
           { text: "Italian", value: "Italian" },
           { text: "Mexican", value: "Mexican" },
@@ -131,6 +133,18 @@
           { text: "Within 3 miles", short: "3 miles", value: "3" },
           { text: "Within 5 miles", short: "5 miles", value: "5" },
           { text: "Doesn't matter", short: "Any", value: "Any" }
+        ]
+      },
+      {
+        key: "diet",
+        label: "Diet",
+        text: "Any dietary needs?",
+        answers: [
+          { text: "No restrictions", short: "None", value: "No restrictions" },
+          { text: "Vegetarian", value: "Vegetarian" },
+          { text: "Vegan", value: "Vegan" },
+          { text: "Halal", value: "Halal" },
+          { text: "Gluten free", value: "Gluten free" }
         ]
       }
     ];
@@ -233,22 +247,84 @@
     }
 
     // Gives each restaurant points and sorts by score.
-    // same cuisine is required; budget +2, mood +2, distance +1, favorite cuisine +1
+    // where the user is (only asked for when they pick a distance)
+    var userPos = null;
+    var lastNote = "";
+
+    function getPosition() {
+      return new Promise(function (resolve) {
+        if (!navigator.geolocation) return resolve(null);
+        var done = false;
+        var timer = setTimeout(function () { if (!done) { done = true; resolve(null); } }, 7000);
+        navigator.geolocation.getCurrentPosition(
+          function (p) { if (!done) { done = true; clearTimeout(timer); resolve({ lat: p.coords.latitude, lng: p.coords.longitude }); } },
+          function () { if (!done) { done = true; clearTimeout(timer); resolve(null); } },
+          { timeout: 6000, maximumAge: 300000 }
+        );
+      });
+    }
+
+    // straight-line miles between two points
+    function milesBetween(lat1, lng1, lat2, lng2) {
+      var rad = Math.PI / 180, R = 3958.8;
+      var dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+      var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    function has(list, value) {
+      var v = String(value).toLowerCase();
+      return (list || []).some(function (x) { return String(x).toLowerCase() === v; });
+    }
+
+    // how far a restaurant is, or undefined if we can't tell
+    function distanceTo(r) {
+      if (userPos && r.latitude !== undefined && r.longitude !== undefined) {
+        return milesBetween(userPos.lat, userPos.lng, r.latitude, r.longitude);
+      }
+      return undefined;
+    }
+
+    // cuisine is required. diet is required too, but if that leaves nothing we drop it and say so.
+    // score: budget +2, mood +2, distance +1, favorite cuisine +1. Each match remembers why it matched.
     function findMatches() {
       var maxMiles = answers.distance === "Any" ? Infinity : Number(answers.distance);
       var favorites = load("tasteProfile", {}).cuisine || [];
-      return RESTAURANTS
-        .filter(function (r) { return answers.cuisine === "Any" || r.cuisine === answers.cuisine; })
-        .map(function (r) {
-          var score = 0;
-          if (r.budget === answers.budget) score += 2;
-          if ((r.moods || []).indexOf(answers.mood) !== -1) score += 2;
-          if (r.miles === undefined || r.miles <= maxMiles) score += 1;
-          if (favorites.indexOf(r.cuisine) !== -1) score += 1;
-          return { r: r, score: score + Math.random() * 0.5 }; // random part so ties mix up
-        })
-        .sort(function (a, b) { return b.score - a.score; })
-        .map(function (x) { return x.r; });
+      lastNote = "";
+
+      function build(useDiet) {
+        return RESTAURANTS
+          .filter(function (r) { return answers.cuisine === "Any" || r.cuisine === answers.cuisine; })
+          .filter(function (r) { return !useDiet || answers.diet === "No restrictions" || has(r.dietary, answers.diet); })
+          .map(function (r) {
+            var score = 0, why = [];
+            var dist = distanceTo(r);
+            if (r.budget === answers.budget) { score += 2; why.push("fits your " + answers.budget + " budget"); }
+            if (has(r.moods, answers.mood)) { score += 2; why.push("matches your " + answers.mood.toLowerCase() + " mood"); }
+            if (dist !== undefined && dist <= maxMiles) { score += 1; }
+            else if (dist === undefined && r.miles !== undefined && r.miles <= maxMiles) { score += 1; dist = r.miles; }
+            if (answers.diet !== "No restrictions" && has(r.dietary, answers.diet)) why.push("has " + answers.diet.toLowerCase() + " options");
+            if (favorites.indexOf(r.cuisine) !== -1) score += 1;
+            var copy = {};
+            for (var k in r) copy[k] = r[k];
+            copy._dist = dist;
+            copy._why = why;
+            copy._score = score + Math.random() * 0.5; // random part so ties mix up
+            return copy;
+          })
+          .sort(function (a, b) { return b._score - a._score; });
+      }
+
+      var list = build(true);
+      if (!list.length && answers.diet !== "No restrictions") {
+        list = build(false);
+        if (list.length) {
+          lastNote = "We don't have a " + (answers.cuisine === "Any" ? "" : answers.cuisine + " ") +
+                     answers.diet.toLowerCase() + " place on our list yet, so these are the closest matches. Check the menu or call before you go.";
+        }
+      }
+      return list;
     }
 
     function mapsLink(query) {
@@ -274,6 +350,19 @@
       $("directions").href = mapsLink(r.name + ", " + r.address);
       printOnTicket("Your pick:", r.name, r.address.split(",").slice(0, 2).join(","));
 
+      var whyBits = r._why.slice();
+      if (r._dist !== undefined) whyBits.push(r._dist < 0.1 ? "right here" : r._dist.toFixed(1) + " miles away");
+      var whyEl = $("why");
+      whyEl.textContent = whyBits.length ? "Why this one: " + whyBits.join(", ") + "." : "";
+      whyEl.hidden = !whyBits.length;
+
+      var note = lastNote;
+      if (!note && answers.diet && answers.diet !== "No restrictions") {
+        note = "Dietary options come from menus we checked. Always confirm with the restaurant, especially for allergies or halal.";
+      }
+      $("note").textContent = note;
+      $("note").hidden = !note;
+
       $("another").hidden = matches.length < 2;
       $("last-one").hidden = !(matches.length > 1 && matchIndex === 0 && $("last-one").dataset.wrapped === "1");
 
@@ -286,6 +375,7 @@
 
     async function showResults() {
       save("quizAnswers", answers);
+      userPos = answers.distance === "Any" ? null : await getPosition();
       var fromSupabase = await restaurantsReady; // the list from Supabase, if connected
       if (fromSupabase && fromSupabase.length) RESTAURANTS = fromSupabase;
       matches = findMatches();
