@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pick a restaurant | Decideish</title>
-  <meta name="description" content="Tell us what you feel like, and Decideish picks a restaurant for you.">
+  <meta name="description" content="Tell us what you feel like and Decideish picks a restaurant for you.">
   <link rel="icon" href="logo-mark.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -30,12 +30,24 @@
       <section id="quiz" aria-live="polite">
         <p class="progress" id="progress"></p>
         <div class="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
+        <p class="diet-note" id="diet-note" hidden>Using your saved diet: <b id="diet-note-text"></b>. <button type="button" class="text-btn" id="diet-change">Change it</button></p>
         <h1 class="question" id="question" tabindex="-1"></h1>
         <div class="answers" id="answers" role="radiogroup" aria-labelledby="question"></div>
         <div class="quiz-nav">
           <button type="button" class="btn" id="back">Back</button>
           <button type="button" class="btn btn-primary" id="next" disabled>Next</button>
         </div>
+        <p class="quiz-skips">
+          <button type="button" class="text-btn" id="skip" hidden>Skip this question</button>
+          <button type="button" class="text-btn" id="skip-rest" hidden>Skip the rest and pick for me</button>
+        </p>
+      </section>
+
+      <!-- the short "picking" moment -->
+      <section id="picking" class="picking" hidden aria-live="polite">
+        <img src="logo-mark.png" alt="">
+        <h1>Picking your place</h1>
+        <p class="muted" id="picking-msg">Checking the list</p>
       </section>
 
       <!-- result: a match -->
@@ -43,14 +55,40 @@
         <p class="progress">Your pick</p>
         <h1 class="question" id="rest-name" tabindex="-1"></h1>
         <img id="rest-photo" alt="" hidden referrerpolicy="no-referrer" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin:0 0 16px;">
-        <p class="muted" id="rest-address"></p>
-        <p id="why"></p>
+        <div class="result-tags" id="result-tags"></div>
+        <p class="where">
+          <svg class="pin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <a id="rest-address" href="#" target="_blank" rel="noopener"></a>
+          <span class="hood" id="rest-hood" hidden></span>
+        </p>
+        <div id="why" class="why-box" hidden>
+          <p class="why-title">Why we picked it</p>
+          <p class="why-headline" id="why-headline"></p>
+          <ul id="why-list"></ul>
+          <p class="why-known" id="why-known" hidden></p>
+        </div>
         <p class="small muted" id="note" hidden></p>
+        <p class="allergy-note" id="allergy-note" hidden></p>
         <div class="result-actions">
           <a class="btn btn-primary btn-big" id="directions" href="#" target="_blank" rel="noopener">Get directions</a>
           <button type="button" class="btn" id="another">Show me a different one</button>
         </div>
+        <button type="button" class="save-later" id="save-later" aria-pressed="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>
+          <span id="save-later-text">Save for later</span>
+        </button>
+        <div class="rate" id="rate">
+          <span>How was this pick?</span>
+          <button type="button" id="thumb-up" aria-label="Thumbs up"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9h3zm0 0 4-8c1.7 0 2.5 1.2 2.2 2.8L12.6 9H19a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7"/></svg>Good pick</button>
+          <button type="button" id="thumb-down" aria-label="Thumbs down"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(180deg)"><path d="M7 11v9H4v-9h3zm0 0 4-8c1.7 0 2.5 1.2 2.2 2.8L12.6 9H19a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7"/></svg>Not for me</button>
+        </div>
+        <p class="rate-thanks" id="rate-thanks" hidden></p>
+        <div class="badge-toast" id="badge-toast" role="status" hidden></div>
         <p class="small muted" id="last-one" hidden>That was the last match, so we're back to the first one.</p>
+        <div class="save-cta" id="save-cta" hidden>
+          <p><strong>Want to keep your picks?</strong> A free account saves your taste, your pick history and the places you liked or hid.</p>
+          <a class="btn btn-primary" href="signup.html">Create a free account</a>
+        </div>
         <div class="result-links">
           <button type="button" class="text-btn" id="again">Start over</button>
           <a href="dashboard.html" id="to-dashboard" hidden>Go to my dashboard</a>
@@ -61,10 +99,18 @@
       <section id="no-match" hidden aria-live="polite">
         <p class="progress">No match yet</p>
         <h1 class="question" id="no-match-title" tabindex="-1"></h1>
-        <p class="muted">We're still adding restaurants. For now, here's a Google Maps search for places near you.</p>
+        <p class="muted" id="no-match-text">We're still adding restaurants. For now, here's a Google Maps search for places near you.</p>
+        <div id="try-instead" hidden>
+          <p class="try-label">Try one of these instead</p>
+          <div class="try-chips" id="try-chips"></div>
+        </div>
         <div class="result-actions">
-          <a class="btn btn-primary btn-big" id="maps-search" href="#" target="_blank" rel="noopener">Search Google Maps</a>
-          <button type="button" class="btn" id="again-2">Try a different cuisine</button>
+          <button type="button" class="btn btn-primary btn-big" id="any-cuisine">Show me any cuisine</button>
+          <a class="btn" id="maps-search" href="#" target="_blank" rel="noopener">Search Google Maps</a>
+        </div>
+        <div class="result-links">
+          <a href="dashboard.html" id="bring-back" hidden>Bring back places I hid</a>
+          <button type="button" class="text-btn" id="again-2">Start over</button>
         </div>
       </section>
     </div>
@@ -78,6 +124,7 @@
           <p class="label" id="ticket-label">Your pick:</p>
           <p class="place" id="ticket-place"></p>
           <p class="addr" id="ticket-addr"></p>
+          <span class="stamp" id="ticket-stamp" hidden aria-hidden="true"></span>
         </div>
       </div>
     </aside>
@@ -86,6 +133,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
+  <script src="badges.js"></script>
   <script>
     // Quiz questions.
     // "text" is what the user sees, "short" goes on the ticket, "value" is what gets matched.
@@ -149,6 +197,7 @@
         ]
       }
     ];
+    var ALL_QUESTIONS = QUESTIONS.slice(); // the ticket always lists every question, even one we skip
 
     // Backup restaurant list, used when Supabase isn't connected.
     // When it is, the list comes from the restaurants table (see supabase-client.js).
@@ -163,6 +212,9 @@
         address: "225 Hampshire St, Cambridge, MA 02139"
       }
     ];
+
+    // small icons on the answer cards (text badges where a picture doesn't help)
+    var ICONS = {}; // no icons on the answers: plain text reads cleaner
 
     var step = 0;
     var answers = {};
@@ -197,7 +249,7 @@
     function drawTicket() {
       var box = $("ticket-lines");
       box.textContent = "";
-      QUESTIONS.forEach(function (q) {
+      ALL_QUESTIONS.forEach(function (q) {
         var row = document.createElement("div");
         row.className = "ticket-line";
         var dt = document.createElement("dt");
@@ -211,6 +263,16 @@
         row.appendChild(dd);
         box.appendChild(row);
       });
+    }
+
+    // distance and diet can be skipped; mood, cuisine and budget are the three that matter
+    var DEFAULTS = { distance: "Any", diet: "No restrictions" };
+
+    function updateSkips() {
+      var q = QUESTIONS[step];
+      $("skip").hidden = !DEFAULTS[q.key];
+      var haveRequired = answers.mood && answers.cuisine && answers.budget;
+      $("skip-rest").hidden = !(haveRequired && step < QUESTIONS.length - 1);
     }
 
     function showQuestion() {
@@ -234,16 +296,31 @@
           answers[q.key] = a.value;
           nextBtn.disabled = false;
           drawTicket();
+          updateSkips();
         });
         var span = document.createElement("span");
-        span.textContent = a.text;
+        var icon = ICONS[q.key + ":" + a.value];
+        if (icon) {
+          label.className = "answer has-ico";
+          var ico = document.createElement("i");
+          ico.className = "ico" + (/^[A-Z$]+$/.test(icon) ? " txt" : "");
+          ico.setAttribute("aria-hidden", "true");
+          ico.textContent = icon;
+          span.appendChild(ico);
+        }
+        var txt = document.createElement("b");
+        txt.className = "atext";
+        txt.textContent = a.text;
+        span.appendChild(txt);
         label.appendChild(input);
         label.appendChild(span);
         box.appendChild(label);
       });
 
       backBtn.hidden = step === 0;
+      if (DEFAULTS[q.key]) $("progress").textContent += " \u00B7 optional";
       nextBtn.disabled = !answers[q.key];
+      updateSkips();
       nextBtn.textContent = step === QUESTIONS.length - 1 ? "Pick my restaurant" : "Next";
     }
 
@@ -293,9 +370,32 @@
 
     // cuisine, budget and diet are all required. If nothing fits, we loosen one thing at a time
     // (budget first, then diet) and say so. Score: exact budget +2, mood +2, distance +1, favorite cuisine +1.
+    // thumbs are saved in "ratings" (synced to the account). Latest rating per place wins.
+    var HIDE_DAYS = 30, hiddenCount = 0;
+    function ratingMap() {
+      var map = {};
+      load("ratings", []).forEach(function (x) {
+        if (x && x.name && (!map[x.name] || new Date(x.date) > new Date(map[x.name].date))) map[x.name] = x;
+      });
+      return map;
+    }
+    function isHidden(x) {
+      return x && x.up === false && (Date.now() - new Date(x.date).getTime()) < HIDE_DAYS * 86400000;
+    }
+
+    // cuisines this person keeps going to or liking (2 or more net points) count as favorites too
+    function learnedCuisines() {
+      var c = {};
+      load("pickHistory", []).forEach(function (h) { if (h.cuisine) c[h.cuisine] = (c[h.cuisine] || 0) + 1; });
+      load("ratings", []).forEach(function (x) { if (x.cuisine) c[x.cuisine] = (c[x.cuisine] || 0) + (x.up ? 1 : -1); });
+      return Object.keys(c).filter(function (k) { return c[k] >= 2; });
+    }
+
     function findMatches() {
+      var rmap = ratingMap();
+      hiddenCount = 0;
       var maxMiles = answers.distance === "Any" ? Infinity : Number(answers.distance);
-      var favorites = load("tasteProfile", {}).cuisine || [];
+      var favorites = (load("tasteProfile", {}).cuisine || []).concat(learnedCuisines());
       var want = BUDGET_RANK[answers.budget] || 3;
       var needDiet = answers.diet !== "No restrictions";
       var what = answers.cuisine === "Any" ? "" : answers.cuisine + " ";
@@ -304,6 +404,7 @@
       function build(useDiet, maxRank) {
         return RESTAURANTS
           .filter(function (r) { return answers.cuisine === "Any" || r.cuisine === answers.cuisine; })
+          .filter(function (r) { if (isHidden(rmap[r.name])) { hiddenCount++; return false; } return true; })
           .filter(function (r) { var rank = BUDGET_RANK[r.budget]; return !rank || rank <= maxRank; })
           .filter(function (r) { return !useDiet || !needDiet || has(r.dietary, answers.diet); })
           .map(function (r) {
@@ -317,10 +418,13 @@
             else if (dist === undefined && r.miles !== undefined && r.miles <= maxMiles) { score += 1; dist = r.miles; }
             if (needDiet && has(r.dietary, answers.diet)) why.push("has " + answers.diet.toLowerCase() + " options");
             if (favorites.indexOf(r.cuisine) !== -1) score += 1;
+            var past = rmap[r.name];
+            if (past && past.up === true) { score -= 1.5; copy_liked = true; } else { copy_liked = false; }
             if (rank > want) score -= (rank - want) * 3; // when we have to go over budget, stay as close as possible
             var copy = {};
             for (var k in r) copy[k] = r[k];
             copy._dist = dist;
+            copy._liked = copy_liked;
             copy._why = why;
             copy._score = score + Math.random() * 0.5;
             return copy;
@@ -333,6 +437,7 @@
       var dietNote = "We don't have " + what + answers.diet.toLowerCase() +
                      " places on our list yet, so these are the closest matches. Check the menu or call before you go.";
 
+      var copy_liked = false;
       var tries = [{ diet: true, rank: want, note: "" }];
       if (want < 3) tries.push({ diet: true, rank: 3, note: budgetNote });
       if (needDiet) {
@@ -373,16 +478,54 @@
       } else {
         photo.hidden = true;
       }
+      var tagBox = $("result-tags");
+      tagBox.textContent = "";
+      [r.cuisine, r.budget].concat((r.dietary || []).filter(function (d) { return d !== "No restrictions"; })).forEach(function (t, i) {
+        if (!t) return;
+        var s = document.createElement("span");
+        s.className = i < 2 ? "tag" : "tag teal";
+        s.textContent = t;
+        tagBox.appendChild(s);
+      });
       $("rest-name").textContent = r.name;
-      $("rest-address").textContent = r.address;
+      var addrEl = $("rest-address");
+      addrEl.textContent = r.address.split(",")[0] + " \u2197";
+      addrEl.title = r.address;
+      addrEl.href = mapsLink(r.name + ", " + r.address);
+      var hoodEl = $("rest-hood");
+      hoodEl.textContent = r.neighborhood || "";
+      hoodEl.hidden = !r.neighborhood;
       $("directions").href = mapsLink(r.name + ", " + r.address);
+      $("ticket-stamp").hidden = true;
       printOnTicket("Your pick:", r.name, r.address.split(",").slice(0, 2).join(","));
 
-      var whyBits = r._why.slice();
-      if (r._dist !== undefined) whyBits.push(r._dist < 0.1 ? "right here" : r._dist.toFixed(1) + " miles away");
-      var whyEl = $("why");
-      whyEl.textContent = whyBits.length ? "Why this one: " + whyBits.join(", ") + "." : "";
-      whyEl.hidden = !whyBits.length;
+      // headline: one sentence that sounds like a person wrote it
+      var moodWord = { "Warm & comforting": "cozy", "Spicy & bold": "bold", "Light & fresh": "fresh", "Rich & indulgent": "indulgent" }[answers.mood];
+      var priceWord = { "$": "budget-friendly", "$$": "mid-priced", "$$$": "special-occasion" }[r.budget];
+      var head = "A " + [has(r.moods, answers.mood) ? moodWord : "", priceWord, r.cuisine].filter(Boolean).join(" ") + " spot" +
+        (r.neighborhood ? " in " + r.neighborhood : "");
+      if (r._dist !== undefined) head += r._dist < 0.1 ? ", right where you are" : ", " + r._dist.toFixed(1) + " miles away";
+      $("why-headline").textContent = head + ".";
+
+      var whyItems = [];
+      var hist = load("pickHistory", []);
+      var timesCuisine = hist.filter(function (h) { return h.cuisine === r.cuisine; }).length;
+      var seenBefore = hist.some(function (h) { return h.name === r.name; });
+      if (r._liked) whyItems.push("You gave this place a thumbs up before. Back for round two");
+      else if (hist.length && !seenBefore) whyItems.push("New for you: you haven't tried this one yet");
+      if (timesCuisine >= 2) whyItems.push("You've picked " + r.cuisine + " " + timesCuisine + " times, so we know you like it");
+      if (has(r.moods, answers.mood)) whyItems.push("Matches your " + answers.mood.toLowerCase() + " mood");
+      if (r.budget === answers.budget) whyItems.push("Right at your " + answers.budget + " budget");
+      else if ((BUDGET_RANK[r.budget] || 0) < (BUDGET_RANK[answers.budget] || 0)) whyItems.push("Even easier on the wallet than your " + answers.budget + " budget");
+      else if ((BUDGET_RANK[r.budget] || 0) > (BUDGET_RANK[answers.budget] || 0)) whyItems.push("A bit above your " + answers.budget + " budget, but the closest fit we had");
+      if (answers.diet && answers.diet !== "No restrictions" && has(r.dietary, answers.diet)) whyItems.push("Has " + answers.diet.toLowerCase() + " options on the menu");
+      var whyEl = $("why"), whyList = $("why-list");
+      whyList.textContent = "";
+      whyItems.slice(0, 4).forEach(function (t) { var li = document.createElement("li"); li.textContent = t; whyList.appendChild(li); });
+      var knownEl = $("why-known");
+      knownEl.textContent = r.knownFor ? "Known for: " + r.knownFor : "";
+      knownEl.hidden = !r.knownFor;
+      whyEl.hidden = false;
 
       var note = lastNote;
       if (!note && answers.diet && answers.diet !== "No restrictions") {
@@ -390,7 +533,14 @@
       }
       $("note").textContent = note;
       $("note").hidden = !note;
+      var al = String(load("tasteProfile", {}).allergies || "").trim();
+      $("allergy-note").textContent = al ? "You told us about: " + al + ". We can't check ingredients, so please ask the restaurant before you order." : "";
+      $("allergy-note").hidden = !al;
 
+      $("rate").hidden = false;
+      paintSave(r);
+      $("rate-thanks").hidden = true;
+      $("badge-toast").hidden = true;
       $("another").hidden = matches.length < 2;
       $("last-one").hidden = !(matches.length > 1 && matchIndex === 0 && $("last-one").dataset.wrapped === "1");
 
@@ -403,13 +553,29 @@
 
     async function showResults() {
       save("quizAnswers", answers);
-      userPos = answers.distance === "Any" ? null : await getPosition();
-      var fromSupabase = await restaurantsReady; // the list from Supabase, if connected
-      if (fromSupabase && fromSupabase.length) RESTAURANTS = fromSupabase;
-      matches = findMatches();
-      matchIndex = 0;
-      $("last-one").dataset.wrapped = "0";
       quizEl.hidden = true;
+      var pickingEl = $("picking");
+      var msgs = ["Checking the list", "Matching your mood", "Filtering by budget and diet", "Printing your ticket"];
+      var m = 0;
+      $("picking-msg").textContent = msgs[0];
+      pickingEl.hidden = false;
+      window.scrollTo(0, 0);
+      var timer = setInterval(function () { m = (m + 1) % msgs.length; $("picking-msg").textContent = msgs[m]; }, 450);
+      var started = Date.now();
+      try {
+        userPos = answers.distance === "Any" ? null : await getPosition();
+        var fromSupabase = await restaurantsReady; // the list from Supabase, if connected
+        if (fromSupabase && fromSupabase.length) RESTAURANTS = fromSupabase;
+        matches = findMatches();
+        matchIndex = 0;
+        var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var wait = reduced ? 0 : Math.max(0, 1500 - (Date.now() - started));
+        if (wait) await new Promise(function (r) { setTimeout(r, wait); });
+      } finally {
+        clearInterval(timer);
+        pickingEl.hidden = true;
+      }
+      $("last-one").dataset.wrapped = "0";
 
       if (matches.length) {
         showPick();
@@ -417,8 +583,30 @@
         $("rest-name").focus();
       } else {
         var cuisine = answers.cuisine === "Any" ? "" : answers.cuisine + " ";
-        $("no-match-title").textContent = "No " + cuisine + "places on our list yet";
+        $("no-match-title").textContent = hiddenCount
+          ? "Nothing new for you in " + cuisine.trim().toLowerCase() + (cuisine ? " " : "") + "food right now"
+          : "No " + cuisine + "places on our list yet";
+        $("no-match-text").textContent = hiddenCount
+          ? "You've hidden the places we have for this search. You can bring them back from My places on your dashboard, or try a different cuisine."
+          : "We're still adding restaurants. For now, here's a Google Maps search for places near you.";
         $("maps-search").href = mapsLink(cuisine + "restaurants near me");
+        $("bring-back").hidden = !hiddenCount;
+        $("any-cuisine").hidden = answers.cuisine === "Any";
+        // one-tap alternatives: cuisines we do have a place to show right now
+        var rm = ratingMap(), counts = {};
+        RESTAURANTS.forEach(function (r) {
+          if (!r.cuisine || r.cuisine === answers.cuisine || isHidden(rm[r.name])) return;
+          counts[r.cuisine] = (counts[r.cuisine] || 0) + 1;
+        });
+        var alts = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 4);
+        var chips = $("try-chips"); chips.textContent = "";
+        alts.forEach(function (c) {
+          var b = document.createElement("button");
+          b.type = "button"; b.className = "try-chip"; b.textContent = c;
+          b.addEventListener("click", function () { retryWith(c); });
+          chips.appendChild(b);
+        });
+        $("try-instead").hidden = !alts.length;
         printOnTicket("Your pick:", "Not on our list yet", "Try Google Maps");
         noMatchEl.hidden = false;
         $("no-match-title").focus();
@@ -426,12 +614,14 @@
       var signedIn = false;
       try { signedIn = !!localStorage.getItem("memberName"); } catch (err) {}
       $("to-dashboard").hidden = !signedIn;
+      $("save-cta").hidden = signedIn || !matches.length;
       window.scrollTo(0, 0);
     }
 
     function restart() {
       step = 0;
       answers = {};
+      applySavedDiet();
       resultsEl.hidden = true;
       noMatchEl.hidden = true;
       quizEl.hidden = false;
@@ -461,11 +651,15 @@
     });
 
     $("another").addEventListener("click", function () {
-      matchIndex++;
-      if (matchIndex >= matches.length) {
-        matchIndex = 0;
-        $("last-one").dataset.wrapped = "1";
-      }
+      var tries = 0;
+      do {
+        matchIndex++;
+        if (matchIndex >= matches.length) {
+          matchIndex = 0;
+          $("last-one").dataset.wrapped = "1";
+        }
+        tries++;
+      } while (matches[matchIndex]._hidden && tries <= matches.length);
       showPick();
       $("rest-name").focus();
     });
@@ -474,33 +668,177 @@
     $("directions").addEventListener("click", function () {
       var r = matches[matchIndex];
       var picks = load("pickHistory", []);
+      var before = badgeIds();
       picks.unshift({
-        name: r.name, cuisine: r.cuisine, budget: r.budget,
+        name: r.name, cuisine: r.cuisine, budget: r.budget, neighborhood: r.neighborhood || "",
         mood: answers.mood, date: new Date().toISOString()
       });
-      save("pickHistory", picks.slice(0, 20));
+      save("pickHistory", picks.slice(0, 100));
+      announceBadges(before);
     });
 
     $("again").addEventListener("click", restart);
     $("again-2").addEventListener("click", restart);
 
+    $("skip").addEventListener("click", function () {
+      var q = QUESTIONS[step];
+      answers[q.key] = DEFAULTS[q.key];
+      drawTicket();
+      if (step < QUESTIONS.length - 1) { step++; showQuestion(); $("question").focus(); }
+      else showResults();
+    });
+
+    $("skip-rest").addEventListener("click", function () {
+      for (var k in DEFAULTS) if (!answers[k]) answers[k] = DEFAULTS[k];
+      drawTicket();
+      showResults();
+    });
+
+    // no-match: change the cuisine and run the search again
+    function retryWith(cuisine) {
+      answers.cuisine = cuisine;
+      drawTicket();
+      noMatchEl.hidden = true;
+      showResults();
+    }
+    $("any-cuisine").addEventListener("click", function () { retryWith("Any"); });
+
+    // save for later: a bookmark, separate from the thumbs
+    function savedList() { return load("saved", []); }
+    function isSaved(r) { return savedList().some(function (x) { return x.name === r.name; }); }
+    function paintSave(r) {
+      var on = !!r && isSaved(r), b = $("save-later");
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      $("save-later-text").textContent = on ? "Saved for later" : "Save for later";
+    }
+    $("save-later").addEventListener("click", function () {
+      var r = matches[matchIndex]; if (!r) return;
+      var list = savedList().filter(function (x) { return x.name !== r.name; });
+      if (!isSaved(r)) {
+        list.unshift({ name: r.name, cuisine: r.cuisine, budget: r.budget, address: r.address, neighborhood: r.neighborhood || "", date: new Date().toISOString() });
+      }
+      save("saved", list.slice(0, 100));
+      paintSave(r);
+    });
+
+    // badges: work out what was earned before and after an action, and show anything new
+    function badgeIds() { return window.Badges ? Badges.earnedIds(load("pickHistory", []), load("ratings", [])) : []; }
+    function announceBadges(before) {
+      if (!window.Badges) return;
+      var now = Badges.compute(load("pickHistory", []), load("ratings", []));
+      var fresh = now.filter(function (b) { return b.earned && before.indexOf(b.id) === -1; });
+      if (!fresh.length) return;
+      var box = $("badge-toast");
+      box.innerHTML = "";
+      fresh.forEach(function (b) {
+        var row = document.createElement("div"); row.className = "bt-row";
+        row.innerHTML = '<span class="bt-icon">' + Badges.svg(b.glyph) + '</span>';
+        var t = document.createElement("p");
+        var strong = document.createElement("strong"); strong.textContent = "New badge: " + b.name;
+        t.appendChild(strong); t.appendChild(document.createElement("br")); t.appendChild(document.createTextNode(b.desc));
+        row.appendChild(t); box.appendChild(row);
+      });
+      var a = document.createElement("a"); a.href = "dashboard.html"; a.textContent = "See your badges";
+      box.appendChild(a);
+      box.hidden = false;
+      box.style.animation = "none"; void box.offsetWidth; box.style.animation = "";
+    }
+
+    function signedInNow() { try { return !!localStorage.getItem("memberName"); } catch (err) { return false; } }
+    function rate(up) {
+      var r = matches[matchIndex];
+      var before = badgeIds();
+      var list = load("ratings", []).filter(function (x) { return x.name !== r.name; });
+      list.unshift({ name: r.name, cuisine: r.cuisine, budget: r.budget, address: r.address, up: up, date: new Date().toISOString() });
+      save("ratings", list.slice(0, 200));
+      announceBadges(before);
+      if (!up) { save("saved", savedList().filter(function (x) { return x.name !== r.name; })); paintSave(r); }
+      var st = $("ticket-stamp");
+      st.textContent = up ? "Approved" : "Nope";
+      st.className = "stamp" + (up ? "" : " nope");
+      st.hidden = false;
+      $("rate").hidden = true;
+      var thanks = $("rate-thanks");
+      thanks.textContent = up
+        ? (signedInNow() ? "Saved to My places. We'll show you new spots next time." : "Saved on this device. A free account keeps it for good.")
+        : "Got it. We won't suggest " + r.name + " for " + HIDE_DAYS + " days.";
+      thanks.hidden = false;
+      thanks.style.animation = "none"; void thanks.offsetWidth; thanks.style.animation = "";
+      if (!up) {
+        // skip it if they click "different one"
+        r._hidden = true;
+        var left = matches.filter(function (m) { return !m._hidden; }).length;
+        var other = $("another");
+        other.hidden = left < 1;
+        if (left) { other.classList.remove("nudge"); void other.offsetWidth; other.classList.add("nudge"); }
+      }
+    }
+    $("thumb-up").addEventListener("click", function () { rate(true); });
+    $("thumb-down").addEventListener("click", function () { rate(false); });
+
+    // the homepage can start the quiz with the mood already chosen (quiz.html?mood=...)
+    try {
+      var pre = new URLSearchParams(location.search).get("mood");
+      var ok = QUESTIONS[0].answers.some(function (a) { return a.value === pre; });
+      if (pre && ok) { answers.mood = pre; step = 1; }
+    } catch (err) {}
+
+    // a diet saved in preferences answers the diet question for the person (they can still change it)
+    var DIET_Q = QUESTIONS.filter(function (x) { return x.key === "diet"; })[0];
+    function savedDiet() {
+      var list = (load("tasteProfile", {}).diet || []).filter(function (v) {
+        return v !== "No restrictions" && DIET_Q.answers.some(function (a) { return a.value === v; });
+      });
+      return list[0] || "";
+    }
+    function applySavedDiet() {
+      var d = savedDiet(), i = QUESTIONS.indexOf(DIET_Q);
+      if (d) { if (i !== -1) QUESTIONS.splice(i, 1); answers.diet = d; $("diet-note-text").textContent = d; }
+      else if (i === -1) QUESTIONS.push(DIET_Q);
+      $("diet-note").hidden = !d;
+    }
+    $("diet-change").addEventListener("click", function () {
+      if (QUESTIONS.indexOf(DIET_Q) === -1) QUESTIONS.push(DIET_Q);
+      delete answers.diet;
+      $("diet-note").hidden = true;
+      drawTicket();
+      showQuestion();
+    });
+    applySavedDiet();
     drawTicket();
     showQuestion();
   </script>
 
   <footer class="site-footer">
     <div class="wrap">
-      <nav class="footer-links" aria-label="Footer">
-        <a href="about.html">About</a>
-        <a href="faq.html">FAQ</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
-        <a href="feedback.html">Feedback</a>
-        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
-      </nav>
-      Decideish, 2026. Starting in Cambridge, MA.
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a href="index.html" class="word" style="text-decoration:none"><img src="logo-mark.png" alt=""><b>Decide<span>ish</span></b></a>
+          <p>One restaurant pick for your mood, budget and diet. Starting in Cambridge, MA.</p>
+          <a class="foot-social" href="https://www.instagram.com/decideish/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>@decideish</a>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col"><h3>Decideish</h3><ul>
+            <li><a href="quiz.html">Pick my restaurant</a></li>
+            <li><a href="preferences.html">Preferences</a></li>
+            <li><a href="dashboard.html">My picks</a></li></ul></div>
+          <div class="foot-col"><h3>About</h3><ul>
+            <li><a href="about.html">Our story</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="feedback.html">Feedback</a></li></ul></div>
+          <div class="foot-col"><h3>Contact</h3><ul>
+            <li><a href="mailto:decideish@yahoo.com">decideish@yahoo.com</a></li></ul></div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>&copy; 2026 Decideish. Cambridge, MA.</span>
+        <nav aria-label="Legal"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav>
+      </div>
     </div>
   </footer>
+
+  <a href="feedback.html" class="fb-float" target="_blank" rel="noopener" aria-label="Send feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Feedback</a>
 
 </body>
 </html>

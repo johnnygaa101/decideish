@@ -7,7 +7,7 @@
   <link rel="icon" href="logo-mark.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
     .dash-side { display: grid; gap: 40px; align-content: start; }
@@ -41,7 +41,7 @@
 
   <main class="wrap dash">
 
-    <p class="demo-banner" id="demo-banner" hidden>Demo mode: this is sample data.</p>
+    <p class="demo-banner" id="demo-banner" hidden>Demo mode: this is sample data, and nothing you do here is saved.</p>
 
     <div class="dash-top">
       <div>
@@ -51,6 +51,11 @@
       </div>
       <a href="quiz.html" class="btn btn-primary btn-big">Pick a restaurant</a>
     </div>
+
+    <section class="badges-section" aria-labelledby="badges-title">
+      <div class="badges-head"><h2 id="badges-title">Your badges</h2><span class="small muted" id="badges-count"></span></div>
+      <ul class="badges" id="badges"></ul>
+    </section>
 
     <div class="dash-grid">
 
@@ -73,11 +78,15 @@
           <div id="history"></div>
         </section>
 
-        <section class="journal" aria-labelledby="journal-title">
-          <h2 id="journal-title">Food journal</h2>
-          <p class="small muted" id="journal-date"></p>
-          <textarea id="journal" aria-labelledby="journal-title" placeholder="What did you eat today? Would you order it again?"></textarea>
-          <p class="save-note" id="save-note" aria-live="polite"></p>
+        <section class="myplaces" aria-labelledby="mp-title">
+          <h2 id="mp-title">My places</h2>
+          <p class="small muted">Places you saved to try, plus your thumbs from the quiz. Liked places show up less often so you find new ones. "Not for me" places are hidden for 30 days.</p>
+          <h3>Saved for later</h3>
+          <ul class="mp-list" id="mp-saved"></ul>
+          <h3>Liked</h3>
+          <ul class="mp-list" id="mp-liked"></ul>
+          <h3>Not for me</h3>
+          <ul class="mp-list" id="mp-hidden"></ul>
         </section>
       </div>
 
@@ -86,6 +95,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
+  <script src="badges.js"></script>
   <script>
     // demo mode: add ?demo=1 to the address to show sample data. Nothing is read from or saved to the real account.
     var demo = new URLSearchParams(window.location.search).get("demo") === "1";
@@ -94,16 +104,24 @@
       tasteProfile: { cuisine: ["Indian", "Thai"], diet: ["Vegetarian"], dietOther: "", allergies: "" },
       latestPick: { name: "Punjabi Dhaba", cuisine: "Indian", budget: "$", address: "225 Hampshire St, Cambridge, MA 02139", date: new Date().toISOString() },
       pickHistory: [
-        { name: "Punjabi Dhaba", cuisine: "Indian", budget: "$", date: new Date().toISOString() },
-        { name: "Veggie Galaxy", cuisine: "American", budget: "$$", date: new Date(Date.now() - 2 * 86400000).toISOString() },
-        { name: "Kantipur Cafe", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 5 * 86400000).toISOString() },
-        { name: "Sugar & Spice Thai Restaurant", cuisine: "Thai", budget: "$$", date: new Date(Date.now() - 8 * 86400000).toISOString() },
-        { name: "Nirvana The Taste of India", cuisine: "Indian", budget: "$$", date: new Date(Date.now() - 9 * 86400000).toISOString() },
-        { name: "Nine Tastes", cuisine: "Thai", budget: "$", date: new Date(Date.now() - 11 * 86400000).toISOString() },
-        { name: "India Pavilion", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 13 * 86400000).toISOString() },
-        { name: "Chivo Taqueria", cuisine: "Mexican", budget: "$", date: new Date(Date.now() - 15 * 86400000).toISOString() }
+        { name: "Punjabi Dhaba", neighborhood: "Central Square", cuisine: "Indian", budget: "$", date: new Date().toISOString() },
+        { name: "Veggie Galaxy", neighborhood: "Central Square", cuisine: "American", budget: "$$", date: new Date(Date.now() - 2 * 86400000).toISOString() },
+        { name: "Kantipur Cafe", neighborhood: "Inman Square", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 5 * 86400000).toISOString() },
+        { name: "Sugar & Spice Thai Restaurant", neighborhood: "Kendall Square", cuisine: "Thai", budget: "$$", date: new Date(Date.now() - 8 * 86400000).toISOString() },
+        { name: "Nirvana The Taste of India", neighborhood: "Harvard Square", cuisine: "Indian", budget: "$$", date: new Date(Date.now() - 9 * 86400000).toISOString() },
+        { name: "Nine Tastes", neighborhood: "Porter Square", cuisine: "Thai", budget: "$", date: new Date(Date.now() - 11 * 86400000).toISOString() },
+        { name: "India Pavilion", neighborhood: "Central Square", cuisine: "Indian", budget: "$", date: new Date(Date.now() - 13 * 86400000).toISOString() },
+        { name: "Chivo Taqueria", neighborhood: "Harvard Square", cuisine: "Mexican", budget: "$", date: new Date(Date.now() - 15 * 86400000).toISOString() }
       ],
-      journal: {}
+      saved: [
+        { name: "Geppetto", cuisine: "Italian", neighborhood: "Harvard Square", address: "Cambridge, MA", date: new Date(Date.now() - 1 * 86400000).toISOString() },
+        { name: "Mâe Asian Eatery", cuisine: "Thai", neighborhood: "Central Square", address: "Cambridge, MA", date: new Date(Date.now() - 3 * 86400000).toISOString() }
+      ],
+      ratings: [
+        { name: "Punjabi Dhaba", cuisine: "Indian", address: "225 Hampshire St, Cambridge, MA 02139", up: true, date: new Date(Date.now() - 1 * 86400000).toISOString() },
+        { name: "Nine Tastes", cuisine: "Thai", address: "Cambridge, MA", up: true, date: new Date(Date.now() - 11 * 86400000).toISOString() },
+        { name: "Chivo Taqueria", cuisine: "Mexican", up: false, date: new Date(Date.now() - 4 * 86400000).toISOString() }
+      ]
     };
     function load(key, fallback) {
       if (demo && DEMO[key] !== undefined) return DEMO[key];
@@ -230,17 +248,21 @@
     // what the account has learned: a bar for each cuisine you pick, plus your usual budget
     (function () {
       var box = document.getElementById("taste");
+      // taste = places you went to (+1) + places you liked (+1) - places you didn't like (-1)
+      var rated = load("ratings", []);
       function counts(key) {
         var c = {};
         picks.forEach(function (h) { if (h[key]) c[h[key]] = (c[h[key]] || 0) + 1; });
+        rated.forEach(function (x) { if (x[key]) c[x[key]] = (c[x[key]] || 0) + (x.up ? 1 : -1); });
         return Object.keys(c).map(function (k) { return { name: k, n: c[k] }; })
+          .filter(function (x) { return x.n > 0; })
           .sort(function (a, b) { return b.n - a.n; });
       }
       var cuisines = counts("cuisine").slice(0, 5);
       var budgets = counts("budget");
 
       if (cuisines.length) {
-        box.appendChild(el("p", "taste-label", "Cuisines you pick"));
+        box.appendChild(el("p", "taste-label", "Cuisines you like"));
         var list = el("ul", "bars");
         cuisines.forEach(function (c) {
           var li = el("li", "bar-row");
@@ -271,38 +293,84 @@
       if (box.children.length) document.getElementById("taste-section").hidden = false;
     })();
 
-    // food journal: one entry per day, saved as you type.
-    // all entries are kept together as { "2026-10-12": "text", ... } so they can sync to Supabase
-    var now = new Date();
-    var todayKey = now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate();
-    function getJournal() {
-      var all = load("journal", {});
-      return typeof all === "object" ? all : {};
-    }
-    var journal = document.getElementById("journal");
-    var note = document.getElementById("save-note");
-    document.getElementById("journal-date").textContent =
-      now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-    if (demo) DEMO.journal[todayKey] = "Veggie Galaxy for lunch. Would order the sweet potato fries again.";
-    journal.value = getJournal()[todayKey] || "";
-
-    var timer;
-    journal.addEventListener("input", function () {
-      clearTimeout(timer);
-      note.textContent = "Saving...";
-      timer = setTimeout(function () {
-        if (demo) { note.textContent = "Demo mode: not saved"; return; }
-        var all = getJournal();
-        all[todayKey] = journal.value;
-        try {
-          localStorage.setItem("journal", JSON.stringify(all));
-          cloudSave("journal", all);
-          note.textContent = "Saved";
-        } catch (err) {
-          note.textContent = "Couldn't save. Your browser may be blocking storage.";
+    // My places: thumbs from the quiz, stored in "ratings" (synced to the account)
+    var HIDE_DAYS = 30;
+    function renderPlaces() {
+      var list = load("ratings", []);
+      var liked = document.getElementById("mp-liked"), hid = document.getElementById("mp-hidden");
+      liked.textContent = ""; hid.textContent = "";
+      function row(x, label, btnText, withDirections, storeKey) {
+        var li = el("li", "mp-item");
+        var left = el("div");
+        left.appendChild(el("strong", "", x.name));
+        left.appendChild(el("small", "", label));
+        li.appendChild(left);
+        var b = el("button", "", btnText);
+        b.type = "button";
+        b.addEventListener("click", function () {
+          var k = storeKey || "ratings";
+          if (demo) { DEMO[k] = DEMO[k].filter(function (y) { return y.name !== x.name; }); }
+          else {
+            var next = load(k, []).filter(function (y) { return y.name !== x.name; });
+            try { localStorage.setItem(k, JSON.stringify(next)); } catch (err) {}
+            cloudSave(k, next);
+          }
+          renderPlaces();
+        });
+        var acts = el("div", "mp-actions");
+        if (withDirections) {
+          var dir = el("a", "mp-dir", "Directions");
+          dir.href = "https://www.google.com/maps/search/?api=1&query=" +
+            encodeURIComponent(x.name + ", " + (x.address || "Cambridge, MA"));
+          dir.target = "_blank"; dir.rel = "noopener";
+          dir.setAttribute("aria-label", "Directions to " + x.name);
+          acts.appendChild(dir);
         }
-      }, 500);
-    });
+        acts.appendChild(b);
+        li.appendChild(acts);
+        return li;
+      }
+      var nl = 0, nh = 0, ns = 0;
+      var savedBox = document.getElementById("mp-saved"); savedBox.textContent = "";
+      load("saved", []).forEach(function (x) {
+        var where = (x.neighborhood || x.cuisine || "");
+        savedBox.appendChild(row(x, (where ? where + " \u00b7 " : "") + "saved " + niceDate(x.date), "Remove", true, "saved")); ns++;
+      });
+      if (!ns) savedBox.appendChild(el("li", "mp-empty", "Nothing saved. Tap \u201cSave for later\u201d on a pick you want to try."));
+      list.forEach(function (x) {
+        if (x.up) { liked.appendChild(row(x, (x.cuisine || "") + (x.cuisine ? " \u00b7 " : "") + "liked " + niceDate(x.date), "Remove", true)); nl++; }
+        else {
+          var until = new Date(new Date(x.date).getTime() + HIDE_DAYS * 86400000);
+          if (until > new Date()) { hid.appendChild(row(x, "Hidden until " + niceDate(until.toISOString()), "Bring back")); nh++; }
+        }
+      });
+      if (!nl) liked.appendChild(el("li", "mp-empty", "Nothing yet. Tap the thumbs up on a pick you like."));
+      if (!nh) hid.appendChild(el("li", "mp-empty", "No hidden places."));
+    }
+    renderPlaces();
+
+    // badges
+    (function () {
+      var box = document.getElementById("badges");
+      if (!box || !window.Badges) { var sec = document.querySelector(".badges-section"); if (sec) sec.hidden = true; return; }
+      var list = Badges.compute(load("pickHistory", []), load("ratings", []));
+      var got = list.filter(function (b) { return b.earned; }).length;
+      document.getElementById("badges-count").textContent = got + " of " + list.length;
+      list.sort(function (a, b) { return (b.earned - a.earned); });
+      list.forEach(function (b) {
+        var li = el("li", "badge" + (b.earned ? " earned" : ""));
+        var icon = el("span", "badge-icon"); icon.innerHTML = Badges.svg(b.glyph);
+        li.appendChild(icon);
+        li.appendChild(el("strong", "", b.name));
+        li.appendChild(el("span", "badge-desc", b.desc));
+        if (b.earned) { li.appendChild(el("span", "badge-state", "Earned")); }
+        else {
+          var bar = el("span", "badge-bar"); var fill = el("i"); fill.style.width = Math.round(b.have / b.goal * 100) + "%"; bar.appendChild(fill);
+          li.appendChild(bar); li.appendChild(el("span", "badge-state", b.have + " of " + b.goal));
+        }
+        box.appendChild(li);
+      });
+    })();
 
     // log out: end the Supabase session and clear this browser's copy of the data
     document.getElementById("logout").addEventListener("click", async function (e) {
@@ -315,17 +383,33 @@
 
   <footer class="site-footer">
     <div class="wrap">
-      <nav class="footer-links" aria-label="Footer">
-        <a href="about.html">About</a>
-        <a href="faq.html">FAQ</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
-        <a href="feedback.html">Feedback</a>
-        <a href="https://www.instagram.com/decideish/" target="_blank" rel="noopener">Instagram</a>
-      </nav>
-      Decideish, 2026. Starting in Cambridge, MA.
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a href="index.html" class="word" style="text-decoration:none"><img src="logo-mark.png" alt=""><b>Decide<span>ish</span></b></a>
+          <p>One restaurant pick for your mood, budget and diet. Starting in Cambridge, MA.</p>
+          <a class="foot-social" href="https://www.instagram.com/decideish/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>@decideish</a>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col"><h3>Decideish</h3><ul>
+            <li><a href="quiz.html">Pick my restaurant</a></li>
+            <li><a href="preferences.html">Preferences</a></li>
+            <li><a href="dashboard.html">My picks</a></li></ul></div>
+          <div class="foot-col"><h3>About</h3><ul>
+            <li><a href="about.html">Our story</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="feedback.html">Feedback</a></li></ul></div>
+          <div class="foot-col"><h3>Contact</h3><ul>
+            <li><a href="mailto:decideish@yahoo.com">decideish@yahoo.com</a></li></ul></div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>&copy; 2026 Decideish. Cambridge, MA.</span>
+        <nav aria-label="Legal"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav>
+      </div>
     </div>
   </footer>
+
+  <a href="feedback.html" class="fb-float" target="_blank" rel="noopener" aria-label="Send feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Feedback</a>
 
 </body>
 </html>

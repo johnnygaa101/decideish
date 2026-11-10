@@ -17,7 +17,7 @@ if (window.supabase && SUPABASE_KEY.indexOf("PASTE_") === -1) {
 
 // localStorage keys that also get saved to the user_data table
 var SYNCED_KEYS = ["tasteProfile", "pickHistory", "ratings", "journal",
-                   "latestPick", "quizAnswers", "spins", "badgesSeen"];
+                   "latestPick", "quizAnswers", "spins", "badgesSeen", "saved"];
 
 // save one key to Supabase if someone is logged in
 function cloudSave(key, value) {
@@ -86,7 +86,12 @@ async function loadRestaurants() {
   // turns "a, b" text or a real list into a clean list
   function toList(v) {
     if (Array.isArray(v)) return v.map(function (x) { return String(x).trim(); }).filter(Boolean);
-    if (typeof v === "string") return v.split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    if (typeof v === "string") {
+      var t = v.trim();
+      if (t.charAt(0) === "[") { try { return toList(JSON.parse(t)); } catch (e) {} }  // text that looks like ["a","b"]
+      t = t.replace(/^\{|\}$/g, "").replace(/"/g, "");                                  // text that looks like {a,b}
+      return t.split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    }
     return [];
   }
   return res.data.map(function (r) {
@@ -100,6 +105,8 @@ async function loadRestaurants() {
       longitude: r.longitude === null || r.longitude === undefined ? undefined : Number(r.longitude),
       miles: r.miles === null || r.miles === undefined ? undefined : Number(r.miles),
       address: String(r.address || "").replace(/\s+/g, " ").trim(),
+      neighborhood: String(r.neighborhood || "").trim(),
+      knownFor: String(r.known_for || "").trim(),
       image: String(r.image_url || "").trim()
     };
   });
