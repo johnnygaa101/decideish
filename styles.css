@@ -1276,3 +1276,50 @@ h1, .question { font-weight: 800; }
 .diet-note { margin: 0 0 14px; font-size: 0.92rem; color: var(--navy-2); }
 .diet-note b { color: var(--navy); }
 .allergy-note { margin: 12px 0 0; padding: 10px 14px; background: var(--orange-wash); border-left: 4px solid var(--orange); border-radius: 8px; font-size: 0.92rem; line-height: 1.4; color: var(--navy); }
+
+.osm-note { margin: 12px 0 0; font-size: 0.88rem; line-height: 1.45; color: var(--navy-2); }
+.osm-note a { color: var(--navy); font-weight: 600; }
+
+.fb-float { transition: opacity .2s, transform .2s; }
+.fb-float.away { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.foot-bottom { padding-bottom: 26px; }
+@media (prefers-reduced-motion: reduce) { .fb-float { transition: none; } }
+
+/* about: team cards */
+.team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 20px 0 8px; }
+.member { background: var(--surface); border: 2px solid var(--navy); border-radius: 18px; box-shadow: 0 5px 0 var(--navy); padding: 24px; display: flex; flex-direction: column; }
+.member-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.member .avatar { width: 56px; height: 56px; border-radius: 16px; background: var(--orange-wash); color: var(--orange-dark); display: grid; place-items: center; font-weight: 800; flex-shrink: 0; }
+.member h3 { margin: 0; font-size: 1.15rem; line-height: 1.25; }
+.member .role { color: var(--orange-dark); font-size: .88rem; font-weight: 700; margin-top: 3px; }
+.member p { margin: 0 0 12px; font-size: .98rem; }
+.profile-link { align-self: flex-start; margin-top: auto; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; background: var(--navy); color: #fff; font-weight: 700; font-size: .9rem; text-decoration: none; }
+.profile-link:hover { background: var(--orange); }
+.profile-link svg { width: 16px; height: 16px; fill: currentColor; }
+@media (max-width: 760px) { .team-grid { grid-template-columns: 1fr; } }
+
+/* about page layout */
+.ab-hero { background: linear-gradient(125deg, var(--navy), #2b437b); color: #fff; text-align: center; padding: 72px 24px 76px; }
+.ab-eyebrow { font-family: var(--font-ticket); text-transform: uppercase; letter-spacing: .17em; font-size: .85rem; font-weight: 700; color: #FF9A5C; margin: 0; }
+.ab-hero h1 { font-size: clamp(2.1rem, 5vw, 3.5rem); letter-spacing: -.03em; margin: 10px 0 14px; line-height: 1.1; color: #fff; }
+.ab-hero p:last-child { max-width: 660px; margin: 0 auto; color: #E3E8F6; font-size: 1.08rem; }
+.ab-main { max-width: 1080px; margin: 0 auto; padding: 0 24px 72px; }
+.ab-intro { max-width: 760px; margin: 52px auto 48px; text-align: center; }
+.ab-intro h2, .ab-heading h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -.02em; margin: 0 0 10px; }
+.ab-intro p, .ab-heading p { color: var(--navy-2); margin: 0; }
+.ab-heading { text-align: center; margin-bottom: 28px; }
+.ab-accent { display: block; width: 55px; height: 5px; border-radius: 8px; background: var(--orange); margin: 13px auto 0; }
+.ab-cta { text-align: center; margin-top: 56px; padding: 36px 24px; background: var(--paper); border: 2px solid var(--navy); border-radius: 20px; box-shadow: 0 6px 0 var(--navy); }
+.ab-cta h2 { margin: 0 0 6px; font-size: 1.6rem; }
+.ab-cta p { color: var(--navy-2); margin: 0 0 20px; }
+
+/* compact team strip (about page) */
+.team-strip { max-width: 1080px; margin: 0 auto; padding: 8px 24px 64px; text-align: center; }
+.team-strip h2 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); margin: 0 0 6px; }
+.strip-sub { color: var(--navy-2); margin: 0 0 28px; }
+.mini-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+.mini { flex: 1 1 210px; max-width: 250px; background: var(--surface); border: 2px solid var(--navy); border-radius: 18px; box-shadow: 0 5px 0 var(--navy); padding: 22px 18px; }
+.mini h3 { margin: 0 0 6px; font-size: 1.15rem; line-height: 1.25; }
+.mini p { margin: 0; color: var(--navy-2); font-size: .95rem; }
+.mini .mini-track { color: var(--orange-dark); font-weight: 700; margin-top: 4px; }
+.strip-link { margin: 28px 0 0; font-weight: 700; }

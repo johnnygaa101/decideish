@@ -63,6 +63,7 @@
       <li><strong>Google Fonts</strong> provides the fonts on this site, so your browser loads them from Google.</li>
       <li><strong>jsDelivr</strong> provides a piece of code our site needs to talk to Supabase.</li>
       <li><strong>Google Maps</strong> opens only when you click Get directions.</li>
+      <li><strong>OpenStreetMap</strong> (through its Overpass service) provides extra restaurant listings. When you open the quiz, your browser asks their servers for restaurants in Cambridge, so they can see your IP address like any website you visit. We don't send them your location, answers or account. Restaurant data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</li>
     </ul>
 
     <h2>Your choices</h2>
@@ -92,6 +93,7 @@
             <li><a href="dashboard.html">My picks</a></li></ul></div>
           <div class="foot-col"><h3>About</h3><ul>
             <li><a href="about.html">Our story</a></li>
+            <li><a href="team.html">Meet the team</a></li>
             <li><a href="faq.html">FAQ</a></li>
             <li><a href="feedback.html">Feedback</a></li></ul></div>
           <div class="foot-col"><h3>Contact</h3><ul>
@@ -106,6 +108,15 @@
   </footer>
 
   <a href="feedback.html" class="fb-float" target="_blank" rel="noopener" aria-label="Send feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Feedback</a>
+
+  <script>
+    // the Feedback button steps aside while the footer (which has its own Feedback link) is on screen
+    (function () {
+      var f = document.querySelector(".site-footer"), b = document.querySelector(".fb-float");
+      if (!f || !b || !("IntersectionObserver" in window)) return;
+      new IntersectionObserver(function (e) { b.classList.toggle("away", e[0].isIntersecting); }).observe(f);
+    })();
+  </script>
 
 </body>
 </html>

@@ -69,6 +69,7 @@
         </div>
         <p class="small muted" id="note" hidden></p>
         <p class="allergy-note" id="allergy-note" hidden></p>
+        <p class="osm-note" id="osm-note" hidden>Listed on <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>. We haven&rsquo;t checked this menu or its prices, so confirm before you go. <span id="osm-hours"></span></p>
         <div class="result-actions">
           <a class="btn btn-primary btn-big" id="directions" href="#" target="_blank" rel="noopener">Get directions</a>
           <button type="button" class="btn" id="another">Show me a different one</button>
@@ -134,6 +135,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
   <script src="badges.js"></script>
+  <script src="osm.js"></script>
   <script>
     // Quiz questions.
     // "text" is what the user sees, "short" goes on the ticket, "value" is what gets matched.
@@ -324,6 +326,44 @@
       nextBtn.textContent = step === QUESTIONS.length - 1 ? "Pick my restaurant" : "Next";
     }
 
+    // ---- restaurants: ours first, OpenStreetMap fills in the rest ----
+    // Places we checked (RESTAURANTS) get a head start. USE_CURATED = false would use OpenStreetMap alone.
+    var USE_CURATED = true, CURATED_BONUS = 3;
+    var POOL = RESTAURANTS.slice(), osmList = [];
+    var osmReady = window.OSM ? OSM.load().catch(function () { return []; }) : Promise.resolve([]);
+
+    function nameKey(n) {
+      return String(n).toLowerCase().replace(/&/g, "and").replace(/\b(the|restaurant|cafe|kitchen)\b/g, "").replace(/[^a-z0-9]/g, "");
+    }
+    function cuisineList(r) { return r.cuisines && r.cuisines.length ? r.cuisines : (r.cuisine ? [r.cuisine] : []); }
+    function buildPool() {
+      var base = USE_CURATED ? RESTAURANTS : [], seen = {};
+      base.forEach(function (r) { seen[nameKey(r.name)] = 1; });
+      var extra = osmList.filter(function (r) { var k = nameKey(r.name); if (!k || seen[k]) return false; seen[k] = 1; return true; });
+      POOL = base.concat(extra);
+    }
+
+    // the cuisine question is built from what we actually have (ours, plus OpenStreetMap's bigger ones)
+    function refreshCuisines() {
+      var counts = {}, ours = {};
+      POOL.forEach(function (r) {
+        cuisineList(r).forEach(function (c) { counts[c] = (counts[c] || 0) + 1; if (r.source !== "osm") ours[c] = 1; });
+      });
+      var names = Object.keys(counts).filter(function (c) { return ours[c] || counts[c] >= 4; })
+        .sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); }).slice(0, 12);
+      if (names.length < 2) return;
+      var q = QUESTIONS.filter(function (x) { return x.key === "cuisine"; })[0];
+      q.answers = names.map(function (c) { return { text: c, value: c }; }).concat([{ text: "Surprise me", short: "Any", value: "Any" }]);
+      try { localStorage.setItem("cuisineList", JSON.stringify(names)); } catch (err) {}
+      if (QUESTIONS[step] && QUESTIONS[step].key === "cuisine" && !quizEl.hidden) showQuestion();
+    }
+    Promise.all([Promise.resolve(restaurantsReady).catch(function () { return null; }), osmReady]).then(function (res) {
+      if (res[0] && res[0].length) RESTAURANTS = res[0];
+      osmList = res[1] || [];
+      buildPool();
+      refreshCuisines();
+    });
+
     // Gives each restaurant points and sorts by score.
     // where the user is (only asked for when they pick a distance)
     var userPos = null;
@@ -402,8 +442,9 @@
       lastNote = "";
 
       function build(useDiet, maxRank) {
-        return RESTAURANTS
-          .filter(function (r) { return answers.cuisine === "Any" || r.cuisine === answers.cuisine; })
+        return POOL
+          .filter(function (r) { return answers.cuisine === "Any" || cuisineList(r).indexOf(answers.cuisine) !== -1; })
+          .filter(function (r) { return !(r.hours && window.OSM && OSM.isOpenNow(r.hours, new Date()) === false); }) // never a closed place
           .filter(function (r) { if (isHidden(rmap[r.name])) { hiddenCount++; return false; } return true; })
           .filter(function (r) { var rank = BUDGET_RANK[r.budget]; return !rank || rank <= maxRank; })
           .filter(function (r) { return !useDiet || !needDiet || has(r.dietary, answers.diet); })
@@ -417,13 +458,20 @@
             if (dist !== undefined && dist <= maxMiles) { score += 1; }
             else if (dist === undefined && r.miles !== undefined && r.miles <= maxMiles) { score += 1; dist = r.miles; }
             if (needDiet && has(r.dietary, answers.diet)) why.push("has " + answers.diet.toLowerCase() + " options");
-            if (favorites.indexOf(r.cuisine) !== -1) score += 1;
+            if (cuisineList(r).some(function (c) { return favorites.indexOf(c) !== -1; })) score += 1;
+            if (r.source !== "osm") score += CURATED_BONUS;                       // places we checked come first
+            if (r.casual) { if (answers.budget === "$") { score += 1; why.push("quick and casual"); } else if (answers.budget === "$$$") score -= 1; }
+            if (!r.cuisine) score -= 1;                                           // no cuisine listed, so a weaker match
+            var openNow = r.hours && window.OSM ? OSM.isOpenNow(r.hours, new Date()) : null;
+            if (openNow === true) score += 1;
             var past = rmap[r.name];
             if (past && past.up === true) { score -= 1.5; copy_liked = true; } else { copy_liked = false; }
             if (rank > want) score -= (rank - want) * 3; // when we have to go over budget, stay as close as possible
             var copy = {};
             for (var k in r) copy[k] = r[k];
             copy._dist = dist;
+            copy._open = openNow;
+            if (answers.cuisine !== "Any" && cuisineList(r).indexOf(answers.cuisine) !== -1) copy.cuisine = answers.cuisine;
             copy._liked = copy_liked;
             copy._why = why;
             copy._score = score + Math.random() * 0.5;
@@ -515,9 +563,12 @@
       else if (hist.length && !seenBefore) whyItems.push("New for you: you haven't tried this one yet");
       if (timesCuisine >= 2) whyItems.push("You've picked " + r.cuisine + " " + timesCuisine + " times, so we know you like it");
       if (has(r.moods, answers.mood)) whyItems.push("Matches your " + answers.mood.toLowerCase() + " mood");
-      if (r.budget === answers.budget) whyItems.push("Right at your " + answers.budget + " budget");
-      else if ((BUDGET_RANK[r.budget] || 0) < (BUDGET_RANK[answers.budget] || 0)) whyItems.push("Even easier on the wallet than your " + answers.budget + " budget");
-      else if ((BUDGET_RANK[r.budget] || 0) > (BUDGET_RANK[answers.budget] || 0)) whyItems.push("A bit above your " + answers.budget + " budget, but the closest fit we had");
+      if (r._open === true) whyItems.push("Open right now");
+      if (BUDGET_RANK[r.budget]) {
+        if (r.budget === answers.budget) whyItems.push("Right at your " + answers.budget + " budget");
+        else if (BUDGET_RANK[r.budget] < (BUDGET_RANK[answers.budget] || 0)) whyItems.push("Even easier on the wallet than your " + answers.budget + " budget");
+        else if (BUDGET_RANK[r.budget] > (BUDGET_RANK[answers.budget] || 0)) whyItems.push("A bit above your " + answers.budget + " budget, but the closest fit we had");
+      } else if (r.casual && answers.budget === "$") whyItems.push("A quick, casual spot");
       if (answers.diet && answers.diet !== "No restrictions" && has(r.dietary, answers.diet)) whyItems.push("Has " + answers.diet.toLowerCase() + " options on the menu");
       var whyEl = $("why"), whyList = $("why-list");
       whyList.textContent = "";
@@ -529,13 +580,17 @@
 
       var note = lastNote;
       if (!note && answers.diet && answers.diet !== "No restrictions") {
-        note = "Dietary options come from menus we checked. Always confirm with the restaurant, especially for allergies or halal.";
+        note = r.source === "osm"
+          ? "Diet info for this place comes from OpenStreetMap volunteers. Please confirm with the restaurant, especially for allergies or halal."
+          : "Dietary options come from menus we checked. Always confirm with the restaurant, especially for allergies or halal.";
       }
       $("note").textContent = note;
       $("note").hidden = !note;
       var al = String(load("tasteProfile", {}).allergies || "").trim();
       $("allergy-note").textContent = al ? "You told us about: " + al + ". We can't check ingredients, so please ask the restaurant before you order." : "";
       $("allergy-note").hidden = !al;
+      $("osm-note").hidden = r.source !== "osm";
+      $("osm-hours").textContent = r._open === true ? "It shows as open now." : (r.hours ? "" : "Opening hours aren\u2019t listed.");
 
       $("rate").hidden = false;
       paintSave(r);
@@ -566,6 +621,9 @@
         userPos = answers.distance === "Any" ? null : await getPosition();
         var fromSupabase = await restaurantsReady; // the list from Supabase, if connected
         if (fromSupabase && fromSupabase.length) RESTAURANTS = fromSupabase;
+        var fromOsm = await Promise.race([osmReady, new Promise(function (r) { setTimeout(function () { r(null); }, 8000); })]);
+        if (fromOsm) osmList = fromOsm;
+        buildPool();
         matches = findMatches();
         matchIndex = 0;
         var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -594,9 +652,9 @@
         $("any-cuisine").hidden = answers.cuisine === "Any";
         // one-tap alternatives: cuisines we do have a place to show right now
         var rm = ratingMap(), counts = {};
-        RESTAURANTS.forEach(function (r) {
-          if (!r.cuisine || r.cuisine === answers.cuisine || isHidden(rm[r.name])) return;
-          counts[r.cuisine] = (counts[r.cuisine] || 0) + 1;
+        POOL.forEach(function (r) {
+          if (isHidden(rm[r.name])) return;
+          cuisineList(r).forEach(function (c) { if (c !== answers.cuisine) counts[c] = (counts[c] || 0) + 1; });
         });
         var alts = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 4);
         var chips = $("try-chips"); chips.textContent = "";
@@ -825,6 +883,7 @@
             <li><a href="dashboard.html">My picks</a></li></ul></div>
           <div class="foot-col"><h3>About</h3><ul>
             <li><a href="about.html">Our story</a></li>
+            <li><a href="team.html">Meet the team</a></li>
             <li><a href="faq.html">FAQ</a></li>
             <li><a href="feedback.html">Feedback</a></li></ul></div>
           <div class="foot-col"><h3>Contact</h3><ul>
@@ -839,6 +898,15 @@
   </footer>
 
   <a href="feedback.html" class="fb-float" target="_blank" rel="noopener" aria-label="Send feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Feedback</a>
+
+  <script>
+    // the Feedback button steps aside while the footer (which has its own Feedback link) is on screen
+    (function () {
+      var f = document.querySelector(".site-footer"), b = document.querySelector(".fb-float");
+      if (!f || !b || !("IntersectionObserver" in window)) return;
+      new IntersectionObserver(function (e) { b.classList.toggle("away", e[0].isIntersecting); }).observe(f);
+    })();
+  </script>
 
 </body>
 </html>

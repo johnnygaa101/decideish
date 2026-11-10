@@ -64,9 +64,9 @@
 
     <h2>How we choose restaurants</h2>
     <p>
-      Every restaurant on Decideish is one we researched ourselves. Some are places we've eaten at,
-      some are local favorites, and some are spots most people haven't heard of yet.
-      We'd rather show you a good small place than the same chains you already know.
+      Restaurants come from two places: ones we researched and picked ourselves, and extra places from
+      OpenStreetMap, a free community map. Some are places we've eaten at, some are local favorites,
+      and some are spots most people haven't heard of yet.
     </p>
 
     <h2>What's next</h2>
@@ -77,14 +77,27 @@
 
     <div class="team-note">
       <p><strong>Tell us what you think.</strong> Missing a restaurant, or want a feature?
-        Our <a href="feedback.html">feedback form</a> goes straight to the five of us.</p>
+        Our <a href="feedback.html">feedback form</a> goes straight to the team.</p>
     </div>
 
     <div class="hero-actions">
       <a href="quiz.html" class="btn btn-primary btn-big">Try it now</a>
+      <a href="team.html">Meet the team</a>
       <a href="faq.html">Read the FAQ</a>
     </div>
   </main>
+
+  <section class="team-strip" aria-labelledby="team-h">
+    <h2 id="team-h">Meet Our Team</h2>
+    <p class="strip-sub">UMass Boston Information Technology seniors.</p>
+    <div class="mini-grid">
+      <div class="mini"><h3>Arya Pratik Jani</h3><p>IT, Management minor</p><p class="mini-track">Business Intelligence</p></div>
+      <div class="mini"><h3>Kirtankumar Patel</h3><p>IT</p><p class="mini-track">Business Intelligence</p></div>
+      <div class="mini"><h3>Johnny Garcia Acosta</h3><p>IT</p><p class="mini-track">Business Intelligence</p></div>
+      <div class="mini"><h3>Roy Nguyen</h3><p>IT</p><p class="mini-track">Computer Forensics</p></div>
+    </div>
+    <p class="strip-link"><a href="team.html">Read our full bios &rarr;</a></p>
+  </section>
 
   <footer class="site-footer">
     <div class="wrap">
@@ -101,6 +114,7 @@
             <li><a href="dashboard.html">My picks</a></li></ul></div>
           <div class="foot-col"><h3>About</h3><ul>
             <li><a href="about.html">Our story</a></li>
+            <li><a href="team.html">Meet the team</a></li>
             <li><a href="faq.html">FAQ</a></li>
             <li><a href="feedback.html">Feedback</a></li></ul></div>
           <div class="foot-col"><h3>Contact</h3><ul>
@@ -115,6 +129,15 @@
   </footer>
 
   <a href="feedback.html" class="fb-float" target="_blank" rel="noopener" aria-label="Send feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Feedback</a>
+
+  <script>
+    // the Feedback button steps aside while the footer (which has its own Feedback link) is on screen
+    (function () {
+      var f = document.querySelector(".site-footer"), b = document.querySelector(".fb-float");
+      if (!f || !b || !("IntersectionObserver" in window)) return;
+      new IntersectionObserver(function (e) { b.classList.toggle("away", e[0].isIntersecting); }).observe(f);
+    })();
+  </script>
 
 </body>
 </html>
